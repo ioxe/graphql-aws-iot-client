@@ -47,7 +47,7 @@ This function has the option of returning a clientId. For example if you are usi
 If you use tokens for authentication I recommend that you use a client id that is composed from the token. The clientId is persistently sent to the server for transactions.
 
 
-Example of getCredentials function which uses Cognito
+# Example of getCredentials function which uses Cognito
 
 ``` ts
 import { environment } from '../../environments/environment';
@@ -76,3 +76,5 @@ export const getCredentials = () => {
     });
 };
 ```
+# See full example app at
+https://github.com/ioxe/graphql-aws-iot-ws-transport-example
