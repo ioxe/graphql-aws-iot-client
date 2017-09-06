@@ -19,10 +19,10 @@ const { region, iotEndpoint, AppPrefix } = environment;
 
 
 const wsClient = new SubscriptionClient(iotEndpoint, {
-    AppPrefix,
-    region,
-    lazy: false,
-    reconnect: true
+    AppPrefix, // Subscription Client publishes to ${AppPrefix}/out as a way to namespace the application in aws iot websockets. The same AppPrefix must be set on the server side (https://github.com/ioxe/graphql-aws-iot-ws-transport)
+    region, // required for creating signed url to connect to mqtt websocket (must be region that matches iot endpoint given on server side lambda functions
+    lazy: false, // TODO test lazy instantiation when set to true
+    reconnect: true 
 }, getCredentials);
 
 const client: ApolloClient = new ApolloClient({
