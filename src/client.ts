@@ -68,7 +68,6 @@ export interface ClientOptions {
     reconnect?: boolean;
     reconnectionAttempts?: number;
     connectionCallback?: (error: Error[], result?: any) => void;
-    lazy?: boolean;
     clientId?: string;
 }
 
@@ -101,7 +100,6 @@ export class SubscriptionClient {
     private backoff: any;
     private connectionCallback: any;
     private eventEmitter: EventEmitter;
-    private lazy: boolean;
     private closedByUser: boolean;
     private wsImpl: any;
     private wasKeepAliveReceived: boolean;
@@ -126,7 +124,6 @@ export class SubscriptionClient {
             timeout = WS_TIMEOUT,
             reconnect = false,
             reconnectionAttempts = Infinity,
-            lazy = true,
     } = (options || {});
         this.getCredentialsFn = getCredentialsFn;
         if (!this.getCredentialsFn) {
@@ -144,7 +141,6 @@ export class SubscriptionClient {
         this.reconnect = reconnect;
         this.reconnecting = false;
         this.reconnectionAttempts = reconnectionAttempts;
-        this.lazy = !!lazy;
         this.closedByUser = false;
         this.backoff = new Backoff({ jitter: 0.5 });
         this.eventEmitter = new EventEmitter();
