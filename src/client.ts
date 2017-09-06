@@ -92,7 +92,6 @@ export class SubscriptionClient {
     private region: string; // region of iot endpoint
     private nextOperationId: number;
     private connectionParams: ConnectionParamsOptions;
-    private wsTimeout: number;
     private unsentMessagesQueue: Array<any>; // queued messages while websocket is opening.
     private reconnect: boolean;
     private reconnecting: boolean;
@@ -154,34 +153,21 @@ export class SubscriptionClient {
         this.connect();
     }
 
-
-    // public get status() {
-    //     if (this.client === null) {
-    //         return this.wsImpl.CLOSED;
-    //     }
-
-    //     return this.client.readyState;
-    // }
-
-
     public close(isForced = true, closedByUser = true) {
-        if (this.client !== null) {
-            this.closedByUser = closedByUser;
-
-            if (isForced) {
-                this.clearCheckConnectionInterval();
-                this.clearMaxConnectTimeout();
-                this.clearTryReconnectTimeout();
-                this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_TERMINATE, null);
-            }
-
+        this.closedByUser = closedByUser;
+        if (isForced) {
+            this.clearCheckConnectionInterval();
+            this.clearMaxConnectTimeout();
+            this.clearTryReconnectTimeout();
+            this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_TERMINATE, null);
+        }
+        if (this.status === 'connected') {
             this.client.disconnect();
-            this.client = null;
-            this.eventEmitter.emit('disconnected');
-
-            if (!isForced) {
-                this.tryReconnect();
-            }
+        }
+        this.client = null;
+        this.eventEmitter.emit('disconnected');
+        if (!isForced) {
+            this.tryReconnect();
         }
     }
 
@@ -397,7 +383,7 @@ export class SubscriptionClient {
 
     private createMaxConnectTimeGenerator() {
         const minValue = 1000;
-        const maxValue = this.wsTimeout;
+        const maxValue = this.timeout;
 
         return new Backoff({
             min: minValue,
@@ -492,8 +478,6 @@ export class SubscriptionClient {
 
     // send message, or queue it if connection is not open
     private sendMessageRaw(message) {
-        console.log('status is');
-        console.log(this.status);
         switch (this.status) {
             case 'connected':
                 const serializedMessage = new Paho.MQTT.Message(JSON.stringify({ data: JSON.stringify(message) })); // sending to graphql api handler as a string
@@ -554,7 +538,7 @@ export class SubscriptionClient {
         }
 
         if (!this.reconnecting) {
-            // this.close(false, true);
+            this.close(false, true);
         }
     }
 
@@ -564,7 +548,7 @@ export class SubscriptionClient {
         // Max timeout trying to connect
         this.maxConnectTimeoutId = setTimeout(() => {
             if (this.status !== 'connected') {
-                // this.close(false, true);
+                this.close(false, true);
             }
         }, this.maxConnectTimeGenerator.duration());
     }
@@ -621,6 +605,7 @@ export class SubscriptionClient {
                 this.status = 'offline';
                 console.log('connection error');
                 console.log(err);
+                this.close(false, false);
             });
 
     }
@@ -694,7 +679,7 @@ export class SubscriptionClient {
                     clearInterval(this.checkConnectionIntervalId);
                     this.checkConnection();
                 }
-                this.checkConnectionIntervalId = setInterval(this.checkConnection.bind(this), this.wsTimeout);
+                this.checkConnectionIntervalId = setInterval(this.checkConnection.bind(this), this.timeout);
                 break;
 
             default:
@@ -705,8 +690,8 @@ export class SubscriptionClient {
     private onClose(err) {
         this.status = 'closed';
         console.log(err);
-        // if (!this.closedByUser) {
-        //     this.close(false, false);
-        // }
+        if (!this.closedByUser) {
+            this.close(false, false);
+        }
     }
 }
