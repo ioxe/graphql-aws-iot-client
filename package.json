@@ -9,14 +9,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ioxe/graphql-aws-iot-ws-client.git"
+    "url": "git+https://github.com/ioxe/graphql-aws-iot-client.git"
   },
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ioxe/graphql-aws-iot-ws-client/issues"
+    "url": "https://github.com/ioxe/graphql-aws-iot-client/issues"
   },
-  "homepage": "https://github.com/ioxe/graphql-aws-iot-ws-client#readme",
+  "homepage": "https://github.com/ioxe/graphql-aws-iot-client#readme",
   "dependencies": {
     "aws-sdk": "^2.106.0",
     "backo2": "^1.0.2",
