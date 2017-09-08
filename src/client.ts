@@ -221,7 +221,7 @@ export class SubscriptionClient {
  * request should be used.
  */
     public query(options: OperationOptions): Promise<ExecutionResult> {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => { 
             const handler = (error: Error[], result?: any) => {
                 if (result) {
                     resolve(result);
