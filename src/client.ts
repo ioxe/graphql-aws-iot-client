@@ -254,10 +254,6 @@ export class SubscriptionClient {
             }
         };
 
-        // if (this.client === null) {
-        //     this.connect();
-        // }
-
         if (!handler) {
             throw new Error('Must provide an handler.');
         }
@@ -478,6 +474,7 @@ export class SubscriptionClient {
 
     // send message, or queue it if connection is not open
     private sendMessageRaw(message) {
+        console.log(message);
         switch (this.status) {
             case 'connected':
                 const serializedMessage = new Paho.MQTT.Message(JSON.stringify({ data: JSON.stringify(message) })); // sending to graphql api handler as a string
@@ -576,7 +573,7 @@ export class SubscriptionClient {
                     // Send CONNECTION_INIT message, no need to wait for connection to success (reduce roundtrips)
 
 
-                    const clientIdTopic = this.AppPrefix + '/in/' + clientId;
+                    const clientIdTopic = this.AppPrefix + '/in/' + this.clientId;
 
                     console.log('subscribing to ' + clientIdTopic);
                     this.client.subscribe(clientIdTopic, {
