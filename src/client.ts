@@ -557,7 +557,7 @@ export class SubscriptionClient {
             const requestUrl = this.sigv4utils.getSignedUrl(
                 this.url, this.region, credentials);
             if (!clientId) {
-                this.clientId = String(Math.floor(Math.random() * 10000) + 1)
+                this.clientId = String(Math.random()).replace('.', '');
             } else {
                 this.clientId = clientId;
             }
