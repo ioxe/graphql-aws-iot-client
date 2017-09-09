@@ -5,13 +5,14 @@
   "main": "src/index.ts",
   "scripts": {
     "prebuild": "rm -rf dist",
-    "build": "tsc"
+    "build": "tsc",
+    "lint": "tslint src/**/*"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ioxe/graphql-aws-iot-client.git"
   },
-  "author": "Girish Nanda <girish@ioxengineering.com>",  
+  "author": "Girish Nanda <girish@ioxengineering.com>",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ioxe/graphql-aws-iot-client/issues"
@@ -20,6 +21,7 @@
   "dependencies": {
     "aws-sdk": "^2.106.0",
     "backo2": "^1.0.2",
+    "bluebird": "^3.5.0",
     "eventemitter3": "^2.0.3",
     "lodash.assign": "^4.2.0",
     "lodash.isobject": "^3.0.2",

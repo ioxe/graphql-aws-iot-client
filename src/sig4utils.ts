@@ -1,12 +1,12 @@
 const util = require('aws-sdk/lib/util');
 
-util.crypto.lib = require('crypto');
-util.Buffer = require('buffer').Buffer;
-util.domain = require('domain');
-util.stream = require('stream');
-util.url = require('url');
-util.querystring = require('querystring');
-util.environment = 'nodejs';
+// util.crypto.lib = require('crypto');
+// util.Buffer = require('buffer').Buffer;
+// util.domain = require('domain');
+// util.stream = require('stream');
+// util.url = require('url');
+// util.querystring = require('querystring');
+// util.environment = 'nodejs';
 
 export class SigV4Utils {
     getSignatureKey(key, date, region, service) {

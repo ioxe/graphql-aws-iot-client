@@ -1,6 +1,7 @@
 import { ListenerFn } from 'eventemitter3';
 import { ExecutionResult } from 'graphql/execution/execute';
 import { DocumentNode } from 'graphql/language/ast';
+import * as Promise from 'bluebird';
 import 'paho-mqtt';
 export interface Observer<T> {
     next?: (value: T) => void;

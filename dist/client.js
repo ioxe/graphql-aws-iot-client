@@ -1,24 +1,34 @@
-import Backoff from 'backo2';
-import { EventEmitter } from 'eventemitter3';
-const isString = require('lodash.isstring');
-const isObject = require('lodash.isobject');
-import { print } from 'graphql/language/printer';
-import { getOperationAST } from 'graphql/utilities/getOperationAST';
-import $$observable from 'symbol-observable';
-import { WS_TIMEOUT } from './defaults';
-import MessageTypes from './message-types';
-import { SigV4Utils } from './sig4utils'; // For WS URL Signing
-import 'paho-mqtt';
-const uuidv4 = require('uuid/v4');
-export class SubscriptionClient {
-    constructor(url, options, getCredentialsFn) {
+"use strict";
+var __assign = (this && this.__assign) || Object.assign || function(t) {
+    for (var s, i = 1, n = arguments.length; i < n; i++) {
+        s = arguments[i];
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+            t[p] = s[p];
+    }
+    return t;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var backo2_1 = require("backo2");
+var eventemitter3_1 = require("eventemitter3");
+var isString = require('lodash.isstring');
+var isObject = require('lodash.isobject');
+var printer_1 = require("graphql/language/printer");
+var getOperationAST_1 = require("graphql/utilities/getOperationAST");
+var symbol_observable_1 = require("symbol-observable");
+var defaults_1 = require("./defaults");
+var message_types_1 = require("./message-types");
+var sig4utils_1 = require("./sig4utils"); // For WS URL Signing
+var Promise = require("bluebird");
+require("paho-mqtt");
+var SubscriptionClient = /** @class */ (function () {
+    function SubscriptionClient(url, options, getCredentialsFn) {
         this.status = 'connecting';
-        const { connectionCallback = null, connectionParams = {}, timeout = WS_TIMEOUT, reconnect = false, reconnectionAttempts = Infinity, } = (options || {});
+        var _a = (options || {}), _b = _a.connectionCallback, connectionCallback = _b === void 0 ? null : _b, _c = _a.connectionParams, connectionParams = _c === void 0 ? {} : _c, _d = _a.timeout, timeout = _d === void 0 ? defaults_1.WS_TIMEOUT : _d, _e = _a.reconnect, reconnect = _e === void 0 ? false : _e, _f = _a.reconnectionAttempts, reconnectionAttempts = _f === void 0 ? Infinity : _f;
         this.getCredentialsFn = getCredentialsFn;
         if (!this.getCredentialsFn) {
             throw new Error('Get Credentials Function required to connect to the socket');
         }
-        this.sigv4utils = new SigV4Utils();
+        this.sigv4utils = new sig4utils_1.SigV4Utils();
         this.connectionParams = connectionParams;
         this.connectionCallback = connectionCallback;
         this.url = url;
@@ -31,8 +41,8 @@ export class SubscriptionClient {
         this.reconnecting = false;
         this.reconnectionAttempts = reconnectionAttempts;
         this.closedByUser = false;
-        this.backoff = new Backoff({ jitter: 0.5 });
-        this.eventEmitter = new EventEmitter();
+        this.backoff = new backo2_1.default({ jitter: 0.5 });
+        this.eventEmitter = new eventemitter3_1.EventEmitter();
         this.middlewares = [];
         this.client = null;
         this.maxConnectTimeGenerator = this.createMaxConnectTimeGenerator();
@@ -40,13 +50,15 @@ export class SubscriptionClient {
         this.request = this.request.bind(this);
         this.connect();
     }
-    close(isForced = true, closedByUser = true) {
+    SubscriptionClient.prototype.close = function (isForced, closedByUser) {
+        if (isForced === void 0) { isForced = true; }
+        if (closedByUser === void 0) { closedByUser = true; }
         this.closedByUser = closedByUser;
         if (isForced) {
             this.clearCheckConnectionInterval();
             this.clearMaxConnectTimeout();
             this.clearTryReconnectTimeout();
-            this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_TERMINATE, null);
+            this.sendMessage(undefined, message_types_1.default.GQL_CONNECTION_TERMINATE, null);
         }
         if (this.status === 'connected') {
             this.client.disconnect();
@@ -56,18 +68,18 @@ export class SubscriptionClient {
         if (!isForced) {
             this.tryReconnect();
         }
-    }
-    request(request) {
-        const getObserver = this.getObserver.bind(this);
-        const executeOperation = this.executeOperation.bind(this);
-        const unsubscribe = this.unsubscribe.bind(this);
-        let opId;
-        return {
-            [$$observable]() {
+    };
+    SubscriptionClient.prototype.request = function (request) {
+        var getObserver = this.getObserver.bind(this);
+        var executeOperation = this.executeOperation.bind(this);
+        var unsubscribe = this.unsubscribe.bind(this);
+        var opId;
+        return _a = {},
+            _a[symbol_observable_1.default] = function () {
                 return this;
             },
-            subscribe(observerOrNext, onError, onComplete) {
-                const observer = getObserver(observerOrNext, onError, onComplete);
+            _a.subscribe = function (observerOrNext, onError, onComplete) {
+                var observer = getObserver(observerOrNext, onError, onComplete);
                 opId = executeOperation({
                     query: request.query,
                     variables: request.variables,
@@ -84,7 +96,7 @@ export class SubscriptionClient {
                     }
                 });
                 return {
-                    unsubscribe: () => {
+                    unsubscribe: function () {
                         if (opId) {
                             unsubscribe(opId);
                             opId = null;
@@ -92,15 +104,17 @@ export class SubscriptionClient {
                     },
                 };
             },
-        };
-    }
+            _a;
+        var _a;
+    };
     /**
  * @deprecated This method will become deprecated in the next release.
  * request should be used.
  */
-    query(options) {
-        return new Promise((resolve, reject) => {
-            const handler = (error, result) => {
+    SubscriptionClient.prototype.query = function (options) {
+        var _this = this;
+        return new Promise(function (resolve, reject) {
+            var handler = function (error, result) {
                 if (result) {
                     resolve(result);
                 }
@@ -109,17 +123,17 @@ export class SubscriptionClient {
                 }
             };
             // NOTE: as soon as we move into observables, we don't need to wait GQL_COMPLETE for queries and mutations
-            this.executeOperation(options, handler);
+            _this.executeOperation(options, handler);
         });
-    }
+    };
     /**
      * @deprecated This method will become deprecated in the next release.
      * request should be used.
      */
-    subscribe(options, handler) {
-        const legacyHandler = (error, result) => {
-            let operationPayloadData = result && result.data || null;
-            let operationPayloadErrors = result && result.errors || null;
+    SubscriptionClient.prototype.subscribe = function (options, handler) {
+        var legacyHandler = function (error, result) {
+            var operationPayloadData = result && result.data || null;
+            var operationPayloadErrors = result && result.errors || null;
             if (error) {
                 operationPayloadErrors = error;
                 operationPayloadData = null;
@@ -132,49 +146,51 @@ export class SubscriptionClient {
             throw new Error('Must provide an handler.');
         }
         return this.executeOperation(options, legacyHandler);
-    }
-    on(eventName, callback, context) {
-        const handler = this.eventEmitter.on(eventName, callback, context);
-        return () => {
+    };
+    SubscriptionClient.prototype.on = function (eventName, callback, context) {
+        var handler = this.eventEmitter.on(eventName, callback, context);
+        return function () {
             handler.off(eventName, callback, context);
         };
-    }
-    onConnected(callback, context) {
+    };
+    SubscriptionClient.prototype.onConnected = function (callback, context) {
         return this.on('connected', callback, context);
-    }
-    onConnecting(callback, context) {
+    };
+    SubscriptionClient.prototype.onConnecting = function (callback, context) {
         return this.on('connecting', callback, context);
-    }
-    onDisconnected(callback, context) {
+    };
+    SubscriptionClient.prototype.onDisconnected = function (callback, context) {
         return this.on('disconnected', callback, context);
-    }
-    onReconnected(callback, context) {
+    };
+    SubscriptionClient.prototype.onReconnected = function (callback, context) {
         return this.on('reconnected', callback, context);
-    }
-    onReconnecting(callback, context) {
+    };
+    SubscriptionClient.prototype.onReconnecting = function (callback, context) {
         return this.on('reconnecting', callback, context);
-    }
-    unsubscribe(opId) {
+    };
+    SubscriptionClient.prototype.unsubscribe = function (opId) {
         if (this.operations[opId]) {
-            this.sendMessage(opId, MessageTypes.GQL_STOP, { subscriptionName: this.operations[opId].options.subscriptionName });
+            this.sendMessage(opId, message_types_1.default.GQL_STOP, { subscriptionName: this.operations[opId].options.subscriptionName });
             delete this.operations[opId];
         }
-    }
-    unsubscribeAll() {
-        Object.keys(this.operations).forEach(subId => {
-            this.unsubscribe(subId);
+    };
+    SubscriptionClient.prototype.unsubscribeAll = function () {
+        var _this = this;
+        Object.keys(this.operations).forEach(function (subId) {
+            _this.unsubscribe(subId);
         });
-    }
-    applyMiddlewares(options) {
-        return new Promise((resolve, reject) => {
-            const queue = (funcs, scope) => {
-                const next = (error) => {
+    };
+    SubscriptionClient.prototype.applyMiddlewares = function (options) {
+        var _this = this;
+        return new Promise(function (resolve, reject) {
+            var queue = function (funcs, scope) {
+                var next = function (error) {
                     if (error) {
                         reject(error);
                     }
                     else {
                         if (funcs.length > 0) {
-                            const f = funcs.shift();
+                            var f = funcs.shift();
                             if (f) {
                                 f.applyMiddleware.apply(scope, [options, next]);
                             }
@@ -186,101 +202,103 @@ export class SubscriptionClient {
                 };
                 next();
             };
-            queue([...this.middlewares], this);
+            queue(_this.middlewares.slice(), _this);
         });
-    }
-    use(middlewares) {
-        middlewares.map((middleware) => {
+    };
+    SubscriptionClient.prototype.use = function (middlewares) {
+        var _this = this;
+        middlewares.map(function (middleware) {
             if (typeof middleware.applyMiddleware === 'function') {
-                this.middlewares.push(middleware);
+                _this.middlewares.push(middleware);
             }
             else {
                 throw new Error('Middleware must implement the applyMiddleware function.');
             }
         });
         return this;
-    }
-    executeOperation(options, handler) {
-        const opId = this.generateOperationId();
-        this.operations[opId] = { options: options, handler };
+    };
+    SubscriptionClient.prototype.executeOperation = function (options, handler) {
+        var _this = this;
+        var opId = this.generateOperationId();
+        this.operations[opId] = { options: options, handler: handler };
         this.applyMiddlewares(options)
-            .then(processedOptions => {
-            this.checkOperationOptions(processedOptions, handler);
-            if (this.operations[opId]) {
+            .then(function (processedOptions) {
+            _this.checkOperationOptions(processedOptions, handler);
+            if (_this.operations[opId]) {
                 processedOptions.subscriptionName = options.query.definitions[0].selectionSet.selections[0].name.value; // how reliable is this and is there a better way. I want the subscription name so i dont have to create another index just to unsubscribe                
-                this.operations[opId] = { options: processedOptions, handler };
-                this.sendMessage(opId, MessageTypes.GQL_START, processedOptions);
+                _this.operations[opId] = { options: processedOptions, handler: handler };
+                _this.sendMessage(opId, message_types_1.default.GQL_START, processedOptions);
             }
         })
-            .catch(error => {
-            this.unsubscribe(opId);
-            handler(this.formatErrors(error));
+            .catch(function (error) {
+            _this.unsubscribe(opId);
+            handler(_this.formatErrors(error));
         });
         return opId;
-    }
-    getObserver(observerOrNext, error, complete) {
+    };
+    SubscriptionClient.prototype.getObserver = function (observerOrNext, error, complete) {
         if (typeof observerOrNext === 'function') {
             return {
-                next: (v) => observerOrNext(v),
-                error: (e) => error && error(e),
-                complete: () => complete && complete(),
+                next: function (v) { return observerOrNext(v); },
+                error: function (e) { return error && error(e); },
+                complete: function () { return complete && complete(); },
             };
         }
         return observerOrNext;
-    }
-    createMaxConnectTimeGenerator() {
-        const minValue = 1000;
-        const maxValue = this.timeout;
-        return new Backoff({
+    };
+    SubscriptionClient.prototype.createMaxConnectTimeGenerator = function () {
+        var minValue = 1000;
+        var maxValue = this.timeout;
+        return new backo2_1.default({
             min: minValue,
             max: maxValue,
             factor: 1.2,
         });
-    }
-    clearCheckConnectionInterval() {
+    };
+    SubscriptionClient.prototype.clearCheckConnectionInterval = function () {
         if (this.checkConnectionIntervalId) {
             clearInterval(this.checkConnectionIntervalId);
             this.checkConnectionIntervalId = null;
         }
-    }
-    clearMaxConnectTimeout() {
+    };
+    SubscriptionClient.prototype.clearMaxConnectTimeout = function () {
         if (this.maxConnectTimeoutId) {
             clearTimeout(this.maxConnectTimeoutId);
             this.maxConnectTimeoutId = null;
         }
-    }
-    clearTryReconnectTimeout() {
+    };
+    SubscriptionClient.prototype.clearTryReconnectTimeout = function () {
         if (this.tryReconnectTimeoutId) {
             clearTimeout(this.tryReconnectTimeoutId);
             this.tryReconnectTimeoutId = null;
         }
-    }
-    checkOperationOptions(options, handler) {
-        const { query, variables, operationName } = options;
+    };
+    SubscriptionClient.prototype.checkOperationOptions = function (options, handler) {
+        var query = options.query, variables = options.variables, operationName = options.operationName;
         if (!query) {
             throw new Error('Must provide a query.');
         }
         if (!handler) {
             throw new Error('Must provide an handler.');
         }
-        if ((!isString(query) && !getOperationAST(query, operationName)) ||
+        if ((!isString(query) && !getOperationAST_1.getOperationAST(query, operationName)) ||
             (operationName && !isString(operationName)) ||
             (variables && !isObject(variables))) {
             throw new Error('Incorrect option types. query must be a string or a document,' +
                 '`operationName` must be a string, and `variables` must be an object.');
         }
-    }
-    buildMessage(id, type, payload) {
-        const payloadToReturn = payload && payload.query ? Object.assign({}, payload, { query: typeof payload.query === 'string' ? payload.query : print(payload.query) }) :
+    };
+    SubscriptionClient.prototype.buildMessage = function (id, type, payload) {
+        var payloadToReturn = payload && payload.query ? __assign({}, payload, { query: typeof payload.query === 'string' ? payload.query : printer_1.print(payload.query) }) :
             payload;
         return {
-            id,
-            type,
+            id: id,
+            type: type,
             payload: payloadToReturn,
         };
-    }
+    };
     // ensure we have an array of errors
-    formatErrors(errors) {
+    SubscriptionClient.prototype.formatErrors = function (errors) {
         if (Array.isArray(errors)) {
             return errors;
         }
@@ -297,16 +315,16 @@ export class SubscriptionClient {
                 message: 'Unknown error',
                 originalError: errors,
             }];
-    }
-    sendMessage(id, type, payload) {
+    };
+    SubscriptionClient.prototype.sendMessage = function (id, type, payload) {
         this.sendMessageRaw(this.buildMessage(id, type, payload));
-    }
+    };
     // send message, or queue it if connection is not open
-    sendMessageRaw(message) {
+    SubscriptionClient.prototype.sendMessageRaw = function (message) {
         console.log(message);
         switch (this.status) {
             case 'connected':
-                const serializedMessage = new Paho.MQTT.Message(JSON.stringify({ data: JSON.stringify(message) })); // sending to graphql api handler as a string
+                var serializedMessage = new Paho.MQTT.Message(JSON.stringify({ data: JSON.stringify(message) })); // sending to graphql api handler as a string
                 serializedMessage.destinationName = this.AppPrefix + '/out'; // topic pattern for each device connected
                 console.log('Sending message');
                 console.log(serializedMessage.payloadString);
@@ -322,33 +340,35 @@ export class SubscriptionClient {
                         'is already closed. Message was: ${JSON.parse(serializedMessage)}.');
                 }
         }
-    }
-    generateOperationId() {
+    };
+    SubscriptionClient.prototype.generateOperationId = function () {
         return String(++this.nextOperationId);
-    }
-    tryReconnect() {
+    };
+    SubscriptionClient.prototype.tryReconnect = function () {
+        var _this = this;
         if (!this.reconnect || this.backoff.attempts >= this.reconnectionAttempts) {
             return;
         }
         if (!this.reconnecting) {
-            Object.keys(this.operations).forEach((key) => {
-                this.unsentMessagesQueue.push(this.buildMessage(key, MessageTypes.GQL_START, this.operations[key].options));
+            Object.keys(this.operations).forEach(function (key) {
+                _this.unsentMessagesQueue.push(_this.buildMessage(key, message_types_1.default.GQL_START, _this.operations[key].options));
             });
             this.reconnecting = true;
         }
         this.clearTryReconnectTimeout();
-        const delay = this.backoff.duration();
-        this.tryReconnectTimeoutId = setTimeout(() => {
-            this.connect();
+        var delay = this.backoff.duration();
+        this.tryReconnectTimeoutId = setTimeout(function () {
+            _this.connect();
         }, delay);
-    }
-    flushUnsentMessagesQueue() {
-        this.unsentMessagesQueue.forEach((message) => {
-            this.sendMessageRaw(message);
+    };
+    SubscriptionClient.prototype.flushUnsentMessagesQueue = function () {
+        var _this = this;
+        this.unsentMessagesQueue.forEach(function (message) {
+            _this.sendMessageRaw(message);
         });
         this.unsentMessagesQueue = [];
-    }
-    checkConnection() {
+    };
+    SubscriptionClient.prototype.checkConnection = function () {
         if (this.wasKeepAliveReceived) {
             this.wasKeepAliveReceived = false;
             return;
@@ -356,91 +376,94 @@ export class SubscriptionClient {
         if (!this.reconnecting) {
             this.close(false, true);
         }
-    }
-    checkMaxConnectTimeout() {
+    };
+    SubscriptionClient.prototype.checkMaxConnectTimeout = function () {
+        var _this = this;
         this.clearMaxConnectTimeout();
         // Max timeout trying to connect
-        this.maxConnectTimeoutId = setTimeout(() => {
-            if (this.status !== 'connected') {
-                this.close(false, true);
+        this.maxConnectTimeoutId = setTimeout(function () {
+            if (_this.status !== 'connected') {
+                _this.close(false, true);
             }
         }, this.maxConnectTimeGenerator.duration());
-    }
-    connect() {
+    };
+    SubscriptionClient.prototype.connect = function () {
+        var _this = this;
         console.log('connecting to socket');
         this.status = 'connecting';
-        this.getCredentialsFn().then(({ credentials, clientId }) => {
-            const requestUrl = this.sigv4utils.getSignedUrl(this.url, this.region, credentials);
+        this.getCredentialsFn().then(function (_a) {
+            var credentials = _a.credentials, clientId = _a.clientId;
+            var requestUrl = _this.sigv4utils.getSignedUrl(_this.url, _this.region, credentials);
             if (!clientId) {
-                this.clientId = String(Math.random()).replace('.', '');
+                _this.clientId = String(Math.random()).replace('.', '');
             }
             else {
-                this.clientId = clientId;
+                _this.clientId = clientId;
             }
-            this.client = new Paho.MQTT.Client(requestUrl, this.clientId);
-            const connectOptions = {
-                onSuccess: () => {
+            _this.client = new Paho.MQTT.Client(requestUrl, _this.clientId);
+            var connectOptions = {
+                onSuccess: function () {
                     console.log('successfully connected');
-                    this.status = 'connected';
-                    this.closedByUser = false;
-                    this.eventEmitter.emit(this.reconnecting ? 'reconnecting' : 'connecting'); // why here and not earlier?
-                    const payload = typeof this.connectionParams === 'function' ? this.connectionParams() : this.connectionParams;
+                    _this.status = 'connected';
+                    _this.closedByUser = false;
+                    _this.eventEmitter.emit(_this.reconnecting ? 'reconnecting' : 'connecting'); // why here and not earlier?
+                    var payload = typeof _this.connectionParams === 'function' ? _this.connectionParams() : _this.connectionParams;
                     // Send CONNECTION_INIT message, no need to wait for connection to success (reduce roundtrips)
-                    const clientIdTopic = this.AppPrefix + '/in/' + this.clientId;
+                    var clientIdTopic = _this.AppPrefix + '/in/' + _this.clientId;
                     console.log('subscribing to ' + clientIdTopic);
-                    this.client.subscribe(clientIdTopic, {
-                        onSuccess: (obj) => {
+                    _this.client.subscribe(clientIdTopic, {
+                        onSuccess: function (obj) {
                             console.log('subscribe success');
-                            this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_INIT, payload);
+                            _this.sendMessage(undefined, message_types_1.default.GQL_CONNECTION_INIT, payload);
                         },
-                        onFailure: (obj) => {
+                        onFailure: function (obj) {
                             console.log('subscribe failure');
                             console.log(obj);
                         }
                     });
-                    this.flushUnsentMessagesQueue();
+                    _this.flushUnsentMessagesQueue();
                 },
                 useSSL: true,
-                timeout: this.timeout,
+                timeout: _this.timeout,
                 mqttVersion: 4,
-                onFailure: this.onClose.bind(this)
+                onFailure: _this.onClose.bind(_this)
             };
-            this.client.onConnectionLost = this.onClose.bind(this);
-            this.client.onMessageArrived = this.processReceivedData.bind(this);
-            this.client.connect(connectOptions);
+            _this.client.onConnectionLost = _this.onClose.bind(_this);
+            _this.client.onMessageArrived = _this.processReceivedData.bind(_this);
+            _this.client.connect(connectOptions);
         })
-            .catch(err => {
-            this.status = 'offline';
+            .catch(function (err) {
+            _this.status = 'offline';
             console.log('connection error');
             console.log(err);
-            this.close(false, false);
+            _this.close(false, false);
         });
-    }
-    processReceivedData(receivedData) {
-        let parsedMessage;
-        let opId;
+    };
+    SubscriptionClient.prototype.processReceivedData = function (receivedData) {
+        var parsedMessage;
+        var opId;
         try {
             parsedMessage = JSON.parse(receivedData.payloadString);
             opId = parsedMessage.id;
             console.log('Received message', parsedMessage);
         }
         catch (e) {
-            throw new Error(`Message must be JSON-parseable. Got: ${receivedData.payloadString}`);
+            throw new Error("Message must be JSON-parseable. Got: " + receivedData.payloadString);
         }
-        if ([MessageTypes.GQL_DATA,
-            MessageTypes.GQL_COMPLETE,
-            MessageTypes.GQL_ERROR,
+        if ([message_types_1.default.GQL_DATA,
+            message_types_1.default.GQL_COMPLETE,
+            message_types_1.default.GQL_ERROR,
         ].indexOf(parsedMessage.type) !== -1 && !this.operations[opId]) {
             this.unsubscribe(opId);
             return;
         }
         switch (parsedMessage.type) {
-            case MessageTypes.GQL_CONNECTION_ERROR:
+            case message_types_1.default.GQL_CONNECTION_ERROR:
                 if (this.connectionCallback) {
                     this.connectionCallback(parsedMessage.payload);
                 }
                 break;
-            case MessageTypes.GQL_CONNECTION_ACK:
+            case message_types_1.default.GQL_CONNECTION_ACK:
                 this.eventEmitter.emit(this.reconnecting ? 'reconnected' : 'connected');
                 this.reconnecting = false;
                 this.backoff.reset();
@@ -449,21 +472,21 @@ export class SubscriptionClient {
                     this.connectionCallback();
                 }
                 break;
-            case MessageTypes.GQL_COMPLETE:
+            case message_types_1.default.GQL_COMPLETE:
                 this.operations[opId].handler(null, null);
                 delete this.operations[opId];
                 break;
-            case MessageTypes.GQL_ERROR:
+            case message_types_1.default.GQL_ERROR:
                 this.operations[opId].handler(this.formatErrors(parsedMessage.payload), null);
                 delete this.operations[opId];
                 break;
-            case MessageTypes.GQL_DATA:
-                const parsedPayload = !parsedMessage.payload.errors ?
-                    parsedMessage.payload : Object.assign({}, parsedMessage.payload, { errors: this.formatErrors(parsedMessage.payload.errors) });
+            case message_types_1.default.GQL_DATA:
+                var parsedPayload = !parsedMessage.payload.errors ?
+                    parsedMessage.payload : __assign({}, parsedMessage.payload, { errors: this.formatErrors(parsedMessage.payload.errors) });
                 this.operations[opId].handler(null, parsedPayload);
                 break;
-            case MessageTypes.GQL_CONNECTION_KEEP_ALIVE:
-                const firstKA = typeof this.wasKeepAliveReceived === 'undefined';
+            case message_types_1.default.GQL_CONNECTION_KEEP_ALIVE:
+                var firstKA = typeof this.wasKeepAliveReceived === 'undefined';
                 this.wasKeepAliveReceived = true;
                 if (firstKA) {
                     this.checkConnection();
@@ -477,13 +500,15 @@ export class SubscriptionClient {
             default:
                 throw new Error('Invalid message type!');
         }
-    }
-    onClose(err) {
+    };
+    SubscriptionClient.prototype.onClose = function (err) {
         this.status = 'closed';
         console.log(err);
         if (!this.closedByUser) {
             this.close(false, false);
         }
-    }
-}
+    };
+    return SubscriptionClient;
+}());
+exports.SubscriptionClient = SubscriptionClient;
 //# sourceMappingURL=client.js.map

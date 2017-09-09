@@ -13,11 +13,11 @@ import MessageTypes from './message-types';
 
 import { SigV4Utils } from './sig4utils'; // For WS URL Signing
 
+import * as Promise from 'bluebird';
+
 
 import 'paho-mqtt';
 declare var Paho: any;
-
-const uuidv4 = require('uuid/v4');
 
 export interface Observer<T> {
     next?: (value: T) => void;
