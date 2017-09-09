@@ -1,5 +1,5 @@
 {
-  "name": "graphql-aws-iot-ws-client",
+  "name": "graphql-aws-iot-client",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
