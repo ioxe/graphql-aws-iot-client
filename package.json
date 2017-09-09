@@ -2,7 +2,7 @@
   "name": "graphql-aws-iot-client",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
+  "main": "dist/index",
   "scripts": {
     "prebuild": "rm -rf dist",
     "build": "tsc",
