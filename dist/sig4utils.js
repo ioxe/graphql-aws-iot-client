@@ -1,14 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var util = require('aws-sdk/lib/util');
-// util.crypto.lib = require('crypto');
-// util.Buffer = require('buffer').Buffer;
-// util.domain = require('domain');
-// util.stream = require('stream');
-// util.url = require('url');
-// util.querystring = require('querystring');
-// util.environment = 'nodejs';
-var SigV4Utils = /** @class */ (function () {
+var SigV4Utils = (function () {
     function SigV4Utils() {
     }
     SigV4Utils.prototype.getSignatureKey = function (key, date, region, service) {

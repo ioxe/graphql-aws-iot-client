@@ -13,9 +13,6 @@ import MessageTypes from './message-types';
 
 import { SigV4Utils } from './sig4utils'; // For WS URL Signing
 
-import * as Promise from 'bluebird';
-
-
 import 'paho-mqtt';
 declare var Paho: any;
 
@@ -112,7 +109,6 @@ export class SubscriptionClient {
     private uuid: string;
     private status = 'connecting';
     private AppPrefix: string // used as namespace for creation of topics
-    private split;
     private getCredentialsFn: GetCredentialsFn // method to obtain credentials for connecting and subscribing to AWS IOT Topics    
     private sigv4utils: SigV4Utils; // class used to sign credentials and create request url to connect to the web socket
 

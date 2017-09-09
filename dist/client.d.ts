@@ -1,7 +1,6 @@
 import { ListenerFn } from 'eventemitter3';
 import { ExecutionResult } from 'graphql/execution/execute';
 import { DocumentNode } from 'graphql/language/ast';
-import * as Promise from 'bluebird';
 import 'paho-mqtt';
 export interface Observer<T> {
     next?: (value: T) => void;
@@ -84,21 +83,12 @@ export declare class SubscriptionClient {
     private uuid;
     private status;
     private AppPrefix;
-    private split;
     private getCredentialsFn;
     private sigv4utils;
     constructor(url: string, options: ClientOptions, getCredentialsFn: GetCredentialsFn);
     close(isForced?: boolean, closedByUser?: boolean): void;
     request(request: OperationOptions): Observable<ExecutionResult>;
-    /**
- * @deprecated This method will become deprecated in the next release.
- * request should be used.
- */
     query(options: OperationOptions): Promise<ExecutionResult>;
-    /**
-     * @deprecated This method will become deprecated in the next release.
-     * request should be used.
-     */
     subscribe(options: OperationOptions, handler: (error: Error[], result?: any) => void): string;
     on(eventName: string, callback: ListenerFn, context?: any): Function;
     onConnected(callback: ListenerFn, context?: any): Function;

@@ -1,12 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var assign = require('lodash.assign');
-/**
- * @deprecated This method will become deprecated in the new package graphql-transport-ws.
- * Start using the GraphQLTransportWSClient to make queries, mutations and subscriptions over websockets.
- */
-// Quick way to add the subscribe and unsubscribe functions to the network interface
-// We will move this into a new package in the future
 function addGraphQLSubscriptions(networkInterface, wsClient) {
     if (process && process.env && process.env.NODE_ENV !== 'production') {
         console.warn('Notice that addGraphQLSubscriptions method will become deprecated in the new package ' +

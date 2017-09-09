@@ -17,10 +17,9 @@ var getOperationAST_1 = require("graphql/utilities/getOperationAST");
 var symbol_observable_1 = require("symbol-observable");
 var defaults_1 = require("./defaults");
 var message_types_1 = require("./message-types");
-var sig4utils_1 = require("./sig4utils"); // For WS URL Signing
-var Promise = require("bluebird");
+var sig4utils_1 = require("./sig4utils");
 require("paho-mqtt");
-var SubscriptionClient = /** @class */ (function () {
+var SubscriptionClient = (function () {
     function SubscriptionClient(url, options, getCredentialsFn) {
         this.status = 'connecting';
         var _a = (options || {}), _b = _a.connectionCallback, connectionCallback = _b === void 0 ? null : _b, _c = _a.connectionParams, connectionParams = _c === void 0 ? {} : _c, _d = _a.timeout, timeout = _d === void 0 ? defaults_1.WS_TIMEOUT : _d, _e = _a.reconnect, reconnect = _e === void 0 ? false : _e, _f = _a.reconnectionAttempts, reconnectionAttempts = _f === void 0 ? Infinity : _f;
@@ -107,10 +106,6 @@ var SubscriptionClient = /** @class */ (function () {
             _a;
         var _a;
     };
-    /**
- * @deprecated This method will become deprecated in the next release.
- * request should be used.
- */
     SubscriptionClient.prototype.query = function (options) {
         var _this = this;
         return new Promise(function (resolve, reject) {
@@ -122,14 +117,9 @@ var SubscriptionClient = /** @class */ (function () {
                     reject(error);
                 }
             };
-            // NOTE: as soon as we move into observables, we don't need to wait GQL_COMPLETE for queries and mutations
             _this.executeOperation(options, handler);
         });
     };
-    /**
-     * @deprecated This method will become deprecated in the next release.
-     * request should be used.
-     */
     SubscriptionClient.prototype.subscribe = function (options, handler) {
         var legacyHandler = function (error, result) {
             var operationPayloadData = result && result.data || null;
@@ -225,7 +215,7 @@ var SubscriptionClient = /** @class */ (function () {
             .then(function (processedOptions) {
             _this.checkOperationOptions(processedOptions, handler);
             if (_this.operations[opId]) {
-                processedOptions.subscriptionName = options.query.definitions[0].selectionSet.selections[0].name.value; // how reliable is this and is there a better way. I want the subscription name so i dont have to create another index just to unsubscribe                
+                processedOptions.subscriptionName = options.query.definitions[0].selectionSet.selections[0].name.value;
                 _this.operations[opId] = { options: processedOptions, handler: handler };
                 _this.sendMessage(opId, message_types_1.default.GQL_START, processedOptions);
             }
@@ -297,13 +287,10 @@ var SubscriptionClient = /** @class */ (function () {
             payload: payloadToReturn,
         };
     };
-    // ensure we have an array of errors
     SubscriptionClient.prototype.formatErrors = function (errors) {
         if (Array.isArray(errors)) {
             return errors;
         }
-        // TODO  we should not pass ValidationError to callback in the future.
-        // ValidationError
         if (errors && errors.errors) {
             return this.formatErrors(errors.errors);
         }
@@ -319,13 +306,12 @@ var SubscriptionClient = /** @class */ (function () {
     SubscriptionClient.prototype.sendMessage = function (id, type, payload) {
         this.sendMessageRaw(this.buildMessage(id, type, payload));
     };
-    // send message, or queue it if connection is not open
     SubscriptionClient.prototype.sendMessageRaw = function (message) {
         console.log(message);
         switch (this.status) {
             case 'connected':
-                var serializedMessage = new Paho.MQTT.Message(JSON.stringify({ data: JSON.stringify(message) })); // sending to graphql api handler as a string
-                serializedMessage.destinationName = this.AppPrefix + '/out'; // topic pattern for each device connected
+                var serializedMessage = new Paho.MQTT.Message(JSON.stringify({ data: JSON.stringify(message) }));
+                serializedMessage.destinationName = this.AppPrefix + '/out';
                 console.log('Sending message');
                 console.log(serializedMessage.payloadString);
                 serializedMessage.retained = false;
@@ -380,7 +366,6 @@ var SubscriptionClient = /** @class */ (function () {
     SubscriptionClient.prototype.checkMaxConnectTimeout = function () {
         var _this = this;
         this.clearMaxConnectTimeout();
-        // Max timeout trying to connect
         this.maxConnectTimeoutId = setTimeout(function () {
             if (_this.status !== 'connected') {
                 _this.close(false, true);
@@ -406,9 +391,8 @@ var SubscriptionClient = /** @class */ (function () {
                     console.log('successfully connected');
                     _this.status = 'connected';
                     _this.closedByUser = false;
-                    _this.eventEmitter.emit(_this.reconnecting ? 'reconnecting' : 'connecting'); // why here and not earlier?
+                    _this.eventEmitter.emit(_this.reconnecting ? 'reconnecting' : 'connecting');
                     var payload = typeof _this.connectionParams === 'function' ? _this.connectionParams() : _this.connectionParams;
-                    // Send CONNECTION_INIT message, no need to wait for connection to success (reduce roundtrips)
                     var clientIdTopic = _this.AppPrefix + '/in/' + _this.clientId;
                     console.log('subscribing to ' + clientIdTopic);
                     _this.client.subscribe(clientIdTopic, {
