@@ -8,7 +8,7 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var backo2_1 = require("backo2");
+var Backoff = require("backo2");
 var eventemitter3_1 = require("eventemitter3");
 var isString = require('lodash.isstring');
 var isObject = require('lodash.isobject');
@@ -41,7 +41,7 @@ var SubscriptionClient = /** @class */ (function () {
         this.reconnecting = false;
         this.reconnectionAttempts = reconnectionAttempts;
         this.closedByUser = false;
-        this.backoff = new backo2_1.default({ jitter: 0.5 });
+        this.backoff = new Backoff({ jitter: 0.5 });
         this.eventEmitter = new eventemitter3_1.EventEmitter();
         this.middlewares = [];
         this.client = null;
@@ -249,7 +249,7 @@ var SubscriptionClient = /** @class */ (function () {
     SubscriptionClient.prototype.createMaxConnectTimeGenerator = function () {
         var minValue = 1000;
         var maxValue = this.timeout;
-        return new backo2_1.default({
+        return new Backoff({
             min: minValue,
             max: maxValue,
             factor: 1.2,

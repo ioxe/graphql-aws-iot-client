@@ -1,4 +1,4 @@
-import Backoff from 'backo2';
+import * as Backoff from 'backo2';
 import { EventEmitter, ListenerFn } from 'eventemitter3';
 const isString = require('lodash.isstring');
 const isObject = require('lodash.isobject');
