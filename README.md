@@ -1,4 +1,4 @@
-# graphql-aws-iot-ws-client
+# graphql-aws-iot-client
 
 # WS client for serverless subscriptions queries and mutations that is compatible with Apollo Client and [graphql-aws-iot-server](https://github.com/ioxe/graphql-aws-iot-server).
 
