@@ -4,7 +4,7 @@
 
 apollo module - setting up client in Angular 2 and up. Please not that this client **will not work with the angular cli**. You can either eject from the cli or use your own custom configuration. The angular cli strips out crypto in its build flow and crypto is required to sign the mqtt ws url for aws iot. 
 
-If you are using angular 2 and up you can import the client directly from 'graphql-aws-iot-client/src' to use the typescript code directly rather than compiled code.
+If you are using angular 2 and up you can import the client directly from 'graphql-aws-iot-client/src' to use the typescript code directly rather than the compiled code.
 
 ``` ts
 import { Inject } from '@angular/core';
