@@ -22,8 +22,11 @@
       ]
     },
     "exclude": [
-      "node_modules",
-      "dist"
+      "tests/**/*",
+      "documentation/**/*",
+      "node_modules/**/*",
+      "coverage/**/*",
+      "dist/**/*"
     ]
   }
   

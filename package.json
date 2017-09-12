@@ -5,6 +5,8 @@
   "main": "dist/index",
   "scripts": {
     "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:dev": "jest --watch",
     "prebuild": "rimraf dist",
     "build": "tsc",
     "lint": "tslint src/**/*"
