@@ -10,7 +10,7 @@
     "lint": "tslint src/**/*",    
     "prebuild": "rimraf dist",
     "build": "tsc",
-    "prepublish": "npm run lint && npm run test && npm run build"    
+    "prepublishOnly": "npm run lint && npm run test && npm run build"    
   },
   "repository": {
     "type": "git",
