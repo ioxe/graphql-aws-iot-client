@@ -9,7 +9,7 @@ util.querystring = require('querystring');
 util.environment = 'nodejs';
 
 export class SigV4Utils {
-    getSignatureKey(key, date, region, service) {
+    private getSignatureKey(key, date, region, service) {
         const kDate = util.crypto.hmac('AWS4' + key, date, 'buffer');
         const kRegion = util.crypto.hmac(kDate, region, 'buffer');
         const kService = util.crypto.hmac(kRegion, service, 'buffer');
@@ -17,7 +17,7 @@ export class SigV4Utils {
         return kCredentials;
     }
 
-    getSignedUrl(host, region, credentials) {
+    public getSignedUrl(host, region, credentials) {
         const datetime = util.date.iso8601(new Date()).replace(/[:\-]|\.\d{3}/g, '');
         const date = datetime.substr(0, 8);
 

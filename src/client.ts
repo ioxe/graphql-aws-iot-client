@@ -59,9 +59,9 @@ export type ConnectionParams = {
 export type ConnectionParamsOptions = ConnectionParams | Function;
 
 export interface ClientOptions {
-    appPrefix: string; // used as namespace for creation of topics  
+    appPrefix: string; // used as namespace for creation of topics
     region: string;
-    connectionParams?: ConnectionParamsOptions;    
+    connectionParams?: ConnectionParamsOptions;
     getCredentialsFunction: GetCredentialsFunction;
     sigv4utils?: SigV4Utils;
     timeout?: number;
@@ -82,13 +82,13 @@ export interface Middleware {
 }
 
 export interface GetCredentialsFunction {
-    (...args: any[]): Promise<AWSCredentials>; // method to obtain credentials for connecting and subscribing to AWS IOT Topics    
+    (...args: any[]): Promise<AWSCredentials>; // method to obtain credentials for connecting and subscribing to AWS IOT Topics
 }
 
 export class SubscriptionClient {
-    private appPrefix: string // used as namespace for creation of topics    
     public client: any;
     public operations: Operations;
+    private appPrefix: string; // used as namespace for creation of topics
     private iotEndpoint: string; // iot endpoint for region where app is deployed
     private region: string; // region of iot endpoint
     private nextOperationId: number;
@@ -112,7 +112,7 @@ export class SubscriptionClient {
     private clientId: string;
     private uuid: string;
     private status = 'connecting';
-    private getCredentialsFunction: GetCredentialsFunction // method to obtain credentials for connecting and subscribing to AWS IOT Topics    
+    private getCredentialsFunction: GetCredentialsFunction; // method to obtain credentials for connecting and subscribing to AWS IOT Topics
     private sigv4utils: SigV4Utils; // class used to sign credentials and create request url to connect to the web socket
 
     constructor(iotEndpoint: string, options: ClientOptions) {
@@ -125,13 +125,13 @@ export class SubscriptionClient {
     } = (options || {});
 
         if (!iotEndpoint) {
-            throw new Error('Iot Endpoint Required')
+            throw new Error('Iot Endpoint Required');
         }
 
         if (!options.appPrefix) {
-            throw new Error('App Prefix Required')   
+            throw new Error('App Prefix Required');
         }
-        
+
         if (!options.getCredentialsFunction) {
             throw new Error('Get Credentials Function required to generate aws iot signed url.');
         }
@@ -139,13 +139,13 @@ export class SubscriptionClient {
         this.iotEndpoint = iotEndpoint;
         this.appPrefix = options.appPrefix;
         this.getCredentialsFunction = options.getCredentialsFunction;
-        
+
         if (options.sigv4utils) {
             this.sigv4utils = options.sigv4utils;
         } else {
             this.sigv4utils = new SigV4Utils();
         }
-       
+
         this.connectionParams = connectionParams;
         this.connectionCallback = connectionCallback;
         this.iotEndpoint = iotEndpoint;
@@ -232,9 +232,9 @@ export class SubscriptionClient {
 
 
     /**
- * @deprecated This method will become deprecated in the next release.
- * request should be used.
- */
+     * @deprecated This method will become deprecated in the next release.
+     * request should be used.
+     */
     public query(options: OperationOptions): Promise<ExecutionResult> {
         return new Promise((resolve, reject) => {
             const handler = (error: Error[], result?: any) => {
@@ -362,7 +362,10 @@ export class SubscriptionClient {
             .then(processedOptions => {
                 this.checkOperationOptions(processedOptions, handler);
                 if (this.operations[opId]) {
-                    processedOptions.subscriptionName = (options.query as any).definitions[0].selectionSet.selections[0].name.value; // how reliable is this and is there a better way. I want the subscription name so i dont have to create another index just to unsubscribe                
+                    processedOptions.subscriptionName =
+                        (options.query as any).definitions[0].selectionSet.selections[0].name.value;
+                        // how reliable is this and is there a better way. I want the subscription name
+                        // so i dont have to create another index just to unsubscribe
                     this.operations[opId] = { options: processedOptions, handler };
                     this.sendMessage(opId, MessageTypes.GQL_START, processedOptions);
                 }
@@ -490,7 +493,8 @@ export class SubscriptionClient {
     private sendMessageRaw(message) {
         switch (this.status) {
             case 'connected':
-                const serializedMessage = new Paho.MQTT.Message(JSON.stringify({ data: JSON.stringify(message) })); // sending to graphql api handler as a string
+                const serializedMessage = new Paho.MQTT.Message(
+                    JSON.stringify({ data: JSON.stringify(message) })); // sending to graphql api handler as a string
                 serializedMessage.destinationName = this.appPrefix + '/out'; // topic pattern for each device connected
                 console.log('Sending message');
                 console.log(serializedMessage.payloadString);
@@ -568,37 +572,38 @@ export class SubscriptionClient {
         this.status = 'connecting';
         this.getCredentialsFunction().then(credentials => {
             const requestUrl = this.sigv4utils.getSignedUrl(
-            this.iotEndpoint, this.region, credentials);      
-            this.clientId = uuidv4();          
+                this.iotEndpoint, this.region, credentials);
+            this.clientId = uuidv4();
             this.client = new Paho.MQTT.Client(requestUrl, this.clientId);
             const connectOptions = {
                 onSuccess: () => {
                     console.log('successfully connected');
                     this.status = 'connected';
                     this.closedByUser = false;
-                                        this.eventEmitter.emit(this.reconnecting ? 'reconnecting' : 'connecting'); // why here and not earlier?
+                    this.eventEmitter.emit(this.reconnecting ? 'reconnecting' : 'connecting'); // why here and not earlier?
                     const payload: ConnectionParams =
                         typeof this.connectionParams === 'function' ? this.connectionParams() : this.connectionParams;
-                    // Send CONNECTION_INIT message, no need to wait for connection to success (reduce roundtrips)                    console.log('subscribing to ' + clientIdTopic);
-                    
+                    // Send CONNECTION_INIT message, no need to wait for connection to success (reduce roundtrips)
+                    //  console.log('subscribing to ' + clientIdTopic);
+
                     const clientIdTopic = this.appPrefix + '/in/' + this.clientId;
-                    console.log('subscribing to ' + clientIdTopic);                    
+                    console.log('subscribing to ' + clientIdTopic);
                     this.client.subscribe(clientIdTopic, {
                         onSuccess: (obj) => {
                             console.log('subscribe success');
-                            this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_INIT, payload);         
-                            this.flushUnsentMessagesQueue();                            
+                            this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_INIT, payload);
+                            this.flushUnsentMessagesQueue();
                         },
                         onFailure: (obj) => {
                             console.log('subscribe failure');
                             console.log(obj);
-                        }
+                        },
                     });
                 },
-                useSSL: requestUrl.substring(0,2) === 'wss',
+                useSSL: requestUrl.substring(0, 2) === 'wss',
                 timeout: this.timeout,
                 mqttVersion: 4,
-                onFailure: this.onClose.bind(this)
+                onFailure: this.onClose.bind(this),
             };
 
             this.client.onConnectionLost = this.onClose.bind(this);
