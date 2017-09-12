@@ -7,9 +7,10 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "test:dev": "jest --watch",
+    "lint": "tslint src/**/*",    
     "prebuild": "rimraf dist",
     "build": "tsc",
-    "lint": "tslint src/**/*"
+    "prepublish": "npm run lint && npm run test && npm run build"    
   },
   "repository": {
     "type": "git",

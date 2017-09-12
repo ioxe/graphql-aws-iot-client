@@ -33,7 +33,6 @@ export interface OperationOptions {
     query?: string | DocumentNode;
     variables?: Object;
     operationName?: string;
-    // subscriptionName: string;
     [key: string]: any;
 }
 
@@ -69,6 +68,7 @@ export interface ClientOptions {
     reconnectionAttempts?: number;
     connectionCallback?: (error: Error[], result?: any) => void;
     clientId?: string;
+    debug?: boolean;
 }
 
 export interface AWSCredentials {
@@ -114,7 +114,7 @@ export class SubscriptionClient {
     private status = 'connecting';
     private getCredentialsFunction: GetCredentialsFunction; // method to obtain credentials for connecting and subscribing to AWS IOT Topics
     private sigv4utils: SigV4Utils; // class used to sign credentials and create request url to connect to the web socket
-
+    private debug: boolean;
     constructor(iotEndpoint: string, options: ClientOptions) {
         const {
             connectionCallback = null,
@@ -163,9 +163,8 @@ export class SubscriptionClient {
         this.middlewares = [];
         this.client = null;
         this.maxConnectTimeGenerator = this.createMaxConnectTimeGenerator();
-
-
         this.request = this.request.bind(this);
+        this.debug = options.debug;
         this.connect();
     }
 
@@ -364,8 +363,8 @@ export class SubscriptionClient {
                 if (this.operations[opId]) {
                     processedOptions.subscriptionName =
                         (options.query as any).definitions[0].selectionSet.selections[0].name.value;
-                        // how reliable is this and is there a better way. I want the subscription name
-                        // so i dont have to create another index just to unsubscribe
+                    // how reliable is this and is there a better way. I want the subscription name
+                    // so i dont have to create another index just to unsubscribe
                     this.operations[opId] = { options: processedOptions, handler };
                     this.sendMessage(opId, MessageTypes.GQL_START, processedOptions);
                 }
@@ -496,8 +495,8 @@ export class SubscriptionClient {
                 const serializedMessage = new Paho.MQTT.Message(
                     JSON.stringify({ data: JSON.stringify(message) })); // sending to graphql api handler as a string
                 serializedMessage.destinationName = this.appPrefix + '/out'; // topic pattern for each device connected
-                console.log('Sending message');
-                console.log(serializedMessage.payloadString);
+                this.debug && console.log('Sending message');
+                this.debug && console.log(message);
                 serializedMessage.retained = false;
                 this.client.send(serializedMessage);
                 break;
@@ -568,7 +567,7 @@ export class SubscriptionClient {
     }
 
     private connect() {
-        console.log('connecting to socket');
+        this.debug && console.log('connecting to socket');
         this.status = 'connecting';
         this.getCredentialsFunction().then(credentials => {
             const requestUrl = this.sigv4utils.getSignedUrl(
@@ -577,26 +576,22 @@ export class SubscriptionClient {
             this.client = new Paho.MQTT.Client(requestUrl, this.clientId);
             const connectOptions = {
                 onSuccess: () => {
-                    console.log('successfully connected');
                     this.status = 'connected';
                     this.closedByUser = false;
                     this.eventEmitter.emit(this.reconnecting ? 'reconnecting' : 'connecting'); // why here and not earlier?
                     const payload: ConnectionParams =
                         typeof this.connectionParams === 'function' ? this.connectionParams() : this.connectionParams;
                     // Send CONNECTION_INIT message, no need to wait for connection to success (reduce roundtrips)
-                    //  console.log('subscribing to ' + clientIdTopic);
-
                     const clientIdTopic = this.appPrefix + '/in/' + this.clientId;
-                    console.log('subscribing to ' + clientIdTopic);
+                    this.debug && console.log('successfully connected');
                     this.client.subscribe(clientIdTopic, {
                         onSuccess: (obj) => {
-                            console.log('subscribe success');
+                            this.debug && console.log(`subscribing to ${clientIdTopic}`);
                             this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_INIT, payload);
                             this.flushUnsentMessagesQueue();
                         },
                         onFailure: (obj) => {
-                            console.log('subscribe failure');
-                            console.log(obj);
+                            this.debug && console.log('subscribe failure', obj);
                         },
                     });
                 },
@@ -612,8 +607,7 @@ export class SubscriptionClient {
         })
             .catch(err => {
                 this.status = 'offline';
-                console.log('connection error');
-                console.log(err);
+                this.debug && console.log('connection error', err);
                 this.close(false, false);
             });
 
@@ -626,7 +620,8 @@ export class SubscriptionClient {
         try {
             parsedMessage = JSON.parse(receivedData.payloadString);
             opId = parsedMessage.id;
-            console.log('Received message', parsedMessage);
+            this.debug && console.log('Received message');
+            this.debug && console.log(parsedMessage);
         } catch (e) {
             throw new Error(`Message must be JSON-parseable. Got: ${receivedData.payloadString}`);
         }
@@ -696,9 +691,10 @@ export class SubscriptionClient {
         }
     }
 
-    private onClose(err) {
+    private onClose(reason) {
         this.status = 'closed';
-        console.log(err);
+        this.debug && console.log('Socket closed');
+        this.debug && console.log(reason);
         if (!this.closedByUser) {
             this.close(false, false);
         }

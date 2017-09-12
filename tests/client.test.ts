@@ -15,7 +15,8 @@ describe('Initialization', () => {
             appPrefix: 'TEST',
             region: 'us-west-2',
             sigv4utils: sigv4utilsMock,
-            getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' })
+            getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
+            debug: false,
         });
         expect(subscriptionClient).toBeDefined();
     });
@@ -26,13 +27,14 @@ describe('Initialization', () => {
             const subscriptionClient = new SubscriptionClient(null, {
                 appPrefix: 'TEST',
                 region: 'us-west-2',
-                getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' })
+                getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
+                debug: false,
             });
         } catch (e) {
             error = e;
         }
         expect(error.message).toEqual('Iot Endpoint Required');
-    })
+    });
 
     it('throws an error if app prefix is missing', () => {
         let error;
@@ -40,7 +42,8 @@ describe('Initialization', () => {
             const subscriptionClient = new SubscriptionClient('iotEndpoint', {
                 appPrefix: null,
                 region: 'us-west-2',
-                getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' })
+                getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
+                debug: false,
             });
         } catch (e) {
             error = e;
@@ -55,7 +58,8 @@ describe('Initialization', () => {
             const subscriptionClient = new SubscriptionClient('iotEndpoint', {
                 appPrefix: 'TEST',
                 region: 'us-west-2',
-                getCredentialsFunction: null
+                getCredentialsFunction: null,
+                debug: false,
             });
         } catch (e) {
             error = e;
@@ -63,7 +67,7 @@ describe('Initialization', () => {
         expect(error.message).toEqual('Get Credentials Function required to generate aws iot signed url.');
 
     });
-})
+});
 
 describe('Sending Messages', () => {
     let server;
@@ -85,7 +89,7 @@ describe('Sending Messages', () => {
             server.close(() => done());
             server = null;
         }
-    })
+    });
 
     it('sends connection_init message with no connection params', done => {
         let messages = [];
@@ -97,22 +101,21 @@ describe('Sending Messages', () => {
             appPrefix: 'TEST',
             region: 'us-west-2',
             getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
-            sigv4utils: sigv4utilsMock
+            sigv4utils: sigv4utilsMock,
+            debug: false,
         });
 
         setTimeout(() => {
             const initPayloadDataString = JSON.parse(messages[2]).data;
             const initPayloadData = JSON.parse(initPayloadDataString);
-            console.log('paya data');
-            console.log(initPayloadData);
-            expect(initPayloadData.type).toEqual(MessageTypes.GQL_CONNECTION_INIT)
+            expect(initPayloadData.type).toEqual(MessageTypes.GQL_CONNECTION_INIT);
             done();
-        }, 3000)
+        }, 3000);
     });
 
     it('sends connection_init message with connection params', done => {
         let messages = [];
-        const connectionParams = { "auth": "1234" };
+        const connectionParams = { 'auth': '1234' };
 
         server.on('published', function (packet, client) {
             const payloadString = packet.payload.toString('utf-8');
@@ -123,16 +126,17 @@ describe('Sending Messages', () => {
             region: 'us-west-2',
             connectionParams,
             getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
-            sigv4utils: sigv4utilsMock
+            sigv4utils: sigv4utilsMock,
+            debug: false,
         });
 
         setTimeout(() => {
             const initPayloadDataString = JSON.parse(messages[2]).data;
             const initPayloadData = JSON.parse(initPayloadDataString);
-            expect(initPayloadData.payload).toEqual(connectionParams)
+            expect(initPayloadData.payload).toEqual(connectionParams);
             expect(messages.length).toBe(3);
             done();
-        }, 3000)
+        }, 3000);
     });
 
     it('sends expected message for subscription start', done => {
@@ -142,9 +146,9 @@ describe('Sending Messages', () => {
                 next(_) { },
                 error(err) {
                     console.log(err);
-                }
+                },
             });
-        })
+        });
         server.on('published', function (packet, client) {
             const payloadString = packet.payload.toString('utf-8');
             messages.push(payloadString);
@@ -153,21 +157,22 @@ describe('Sending Messages', () => {
             appPrefix: 'TEST',
             region: 'us-west-2',
             getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
-            sigv4utils: sigv4utilsMock
+            sigv4utils: sigv4utilsMock,
+            debug: false,
         });
         setTimeout(() => {
             let parsedMessages = [];
             messages.forEach(m => {
                 try {
                     let parsedMessage = JSON.parse(m);
-                    parsedMessages.push(parsedMessage)
+                    parsedMessages.push(parsedMessage);
                 } catch (e) { }
-            })
+            });
             const parsedMessagesWithData = parsedMessages.filter(m => m.data).map(m => JSON.parse(m.data));
             const messageForSubscriptionStart = parsedMessagesWithData.find(m => m.type === MessageTypes.GQL_START);
             expect(messageForSubscriptionStart).toBeDefined();
             done();
-        }, 3000)
+        }, 3000);
     });
 
     it('sends expected message for subscription stop', done => {
@@ -177,13 +182,13 @@ describe('Sending Messages', () => {
                 next(_) { },
                 error(err) {
                     console.log(err);
-                }
+                },
             });
 
             setTimeout(() => {
                 sub.unsubscribe();
-            }, 2000)
-        })
+            }, 2000);
+        });
 
         server.on('published', function (packet, client) {
             const payloadString = packet.payload.toString('utf-8');
@@ -193,7 +198,8 @@ describe('Sending Messages', () => {
             appPrefix: 'TEST',
             region: 'us-west-2',
             getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
-            sigv4utils: sigv4utilsMock
+            sigv4utils: sigv4utilsMock,
+            debug: false,
         });
 
         setTimeout(() => {
@@ -201,16 +207,16 @@ describe('Sending Messages', () => {
             messages.forEach(m => {
                 try {
                     let parsedMessage = JSON.parse(m);
-                    parsedMessages.push(parsedMessage)
+                    parsedMessages.push(parsedMessage);
                 } catch (e) { }
-            })
+            });
             const parsedMessagesWithData = parsedMessages.filter(m => m.data).map(m => JSON.parse(m.data));
             const messageForSubscriptionStart = parsedMessagesWithData.find(m => m.type === MessageTypes.GQL_STOP);
             expect(messageForSubscriptionStart).toBeDefined();
             done();
-        }, 3000)
+        }, 3000);
     });
-})
+});
 
 describe('Event emitters', () => {
     let server;
@@ -232,7 +238,7 @@ describe('Event emitters', () => {
             server.close(() => done());
             server = null;
         }
-    })
+    });
 
     it('should emit on connected event when client is initialized and is connecting', done => {
         const subscriptionClient = new SubscriptionClient('iotendpoint', {
@@ -244,8 +250,8 @@ describe('Event emitters', () => {
         subscriptionClient.onConnecting(() => {
             expect(true).toBe(true);
             done();
-        })
-    })
+        });
+    });
 
     it('should emit on connected event when client is initialized and is connected', done => {
         const subscriptionClient = new SubscriptionClient('iotendpoint', {
@@ -253,11 +259,12 @@ describe('Event emitters', () => {
             region: 'us-west-2',
             getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
             sigv4utils: sigv4utilsMock,
+            debug: false,
         });
         subscriptionClient.onConnected(() => {
             expect(true).toBe(true);
             done();
-        })
+        });
 
         server.on('published', function (packet, client) {
             const payloadString = packet.payload.toString('utf-8');
@@ -269,18 +276,18 @@ describe('Event emitters', () => {
             if (payload && payload.data) {
                 let data = JSON.parse(payload.data);
                 if (data.type === MessageTypes.GQL_CONNECTION_INIT) {
-                    var message = {
+                    const message = {
                         topic: Object.keys(client.subscriptions)[0],
                         payload: JSON.stringify({ type: MessageTypes.GQL_CONNECTION_ACK, payload: {} }),
                         qos: 0, // 0, 1, or 2
-                        retain: false // or true
+                        retain: false, // or true
                     };
 
                     server.publish(message);
                 }
             }
         });
-    })
+    });
 
     it('should emit an event when the client is disconnected', done => {
         const subscriptionClient = new SubscriptionClient('iotendpoint', {
@@ -294,7 +301,7 @@ describe('Event emitters', () => {
             done();
         });
         subscriptionClient.close();
-    })
+    });
 
     it('should emit a reconnecting event if disconnect is not forced', done => {
         const subscriptionClient = new SubscriptionClient('iotendpoint', {
@@ -304,13 +311,14 @@ describe('Event emitters', () => {
             reconnectionAttempts: 1,
             getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
             sigv4utils: sigv4utilsMock,
+            debug: false,
         });
         subscriptionClient.onReconnecting(() => {
             expect(true).toBe(true);
             done();
         });
         subscriptionClient.close(false, true);
-    })
+    });
 
     it('should emit a reconnect event if disconnect not forced and server is online responds with ack', done => {
         const subscriptionClient = new SubscriptionClient('iotendpoint', {
@@ -320,6 +328,7 @@ describe('Event emitters', () => {
             reconnectionAttempts: 1,
             getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
             sigv4utils: sigv4utilsMock,
+            debug: false,
         });
         subscriptionClient.onReconnected(() => {
             expect(true).toBe(true);
@@ -335,11 +344,11 @@ describe('Event emitters', () => {
             if (payload && payload.data) {
                 let data = JSON.parse(payload.data);
                 if (data.type === MessageTypes.GQL_CONNECTION_INIT) {
-                    var message = {
+                    const message = {
                         topic: Object.keys(client.subscriptions)[0],
                         payload: JSON.stringify({ type: MessageTypes.GQL_CONNECTION_ACK, payload: {} }),
                         qos: 0, // 0, 1, or 2
-                        retain: false // or true
+                        retain: false, // or true
                     };
 
                     server.publish(message);
@@ -347,8 +356,8 @@ describe('Event emitters', () => {
             }
         });
         subscriptionClient.close(false, true);
-    })
-})
+    });
+});
 
 
 describe('Receiving Messages', () => {
@@ -371,7 +380,7 @@ describe('Receiving Messages', () => {
             server.close(() => done());
             server = null;
         }
-    })
+    });
 
     it('allows a valid error message', done => {
         server.on('published', function (packet, client) {
@@ -392,10 +401,10 @@ describe('Receiving Messages', () => {
                                     message: 'Test Error',
                                 }],
                             },
-                            id: data.id
+                            id: data.id,
                         }),
                         qos: 0, // 0, 1, or 2
-                        retain: false // or true
+                        retain: false, // or true
                     };
                     server.publish(message);
                 }
@@ -407,6 +416,7 @@ describe('Receiving Messages', () => {
             region: 'us-west-2',
             getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
             sigv4utils: sigv4utilsMock,
+            debug: false,
         });
 
         subscriptionClient.subscribe(startSubscriptionOperationMessage,
@@ -419,14 +429,14 @@ describe('Receiving Messages', () => {
 
     it('allows a valid result message', done => {
         const resultMessage = {
-            "teamTodoAdded": {
-                "id": "c2e60303-3317-41ca-9213-f06f16a602fe",
-                "name": "Todo 6",
-                "author": "Bob",
-                "content": "Todo 6 Content",
-                "timestamp": "2017-09-11T23:50:37.969Z",
-                "__typename": "Todo"
-            }
+            'teamTodoAdded': {
+                'id': 'c2e60303-3317-41ca-9213-f06f16a602fe',
+                'name': 'Todo 6',
+                'author': 'Bob',
+                'content': 'Todo 6 Content',
+                'timestamp': '2017-09-11T23:50:37.969Z',
+                '__typename': 'Todo',
+            },
         };
         server.on('published', function (packet, client) {
             const payloadString = packet.payload.toString('utf-8');
@@ -441,13 +451,13 @@ describe('Receiving Messages', () => {
                         topic: Object.keys(client.subscriptions)[0],
                         payload: JSON.stringify({
                             payload: {
-                                data: resultMessage
+                                data: resultMessage,
                             },
                             type: MessageTypes.GQL_DATA,
-                            id: msg.id
+                            id: msg.id,
                         }),
                         qos: 0, // 0, 1, or 2
-                        retain: false // or true
+                        retain: false, // or true
                     };
                     server.publish(message);
                 }
@@ -459,6 +469,7 @@ describe('Receiving Messages', () => {
             region: 'us-west-2',
             getCredentialsFunction: () => Promise.resolve({ accessKeyId: '12312', secretAccessKey: '1231241' }),
             sigv4utils: sigv4utilsMock,
+            debug: false,
         });
 
         subscriptionClient.subscribe(startSubscriptionOperationMessage,

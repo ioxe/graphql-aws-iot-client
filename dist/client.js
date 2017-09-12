@@ -19,18 +19,32 @@ var defaults_1 = require("./defaults");
 var message_types_1 = require("./message-types");
 var sig4utils_1 = require("./sig4utils");
 require("paho-mqtt");
+var uuidv4 = require('uuid/v4');
 var SubscriptionClient = (function () {
-    function SubscriptionClient(url, options, getCredentialsFn) {
+    function SubscriptionClient(iotEndpoint, options) {
         this.status = 'connecting';
         var _a = (options || {}), _b = _a.connectionCallback, connectionCallback = _b === void 0 ? null : _b, _c = _a.connectionParams, connectionParams = _c === void 0 ? {} : _c, _d = _a.timeout, timeout = _d === void 0 ? defaults_1.WS_TIMEOUT : _d, _e = _a.reconnect, reconnect = _e === void 0 ? false : _e, _f = _a.reconnectionAttempts, reconnectionAttempts = _f === void 0 ? Infinity : _f;
-        this.getCredentialsFn = getCredentialsFn;
-        if (!this.getCredentialsFn) {
-            throw new Error('Get Credentials Function required to connect to the socket');
+        if (!iotEndpoint) {
+            throw new Error('Iot Endpoint Required');
         }
-        this.sigv4utils = new sig4utils_1.SigV4Utils();
+        if (!options.appPrefix) {
+            throw new Error('App Prefix Required');
+        }
+        if (!options.getCredentialsFunction) {
+            throw new Error('Get Credentials Function required to generate aws iot signed url.');
+        }
+        this.iotEndpoint = iotEndpoint;
+        this.appPrefix = options.appPrefix;
+        this.getCredentialsFunction = options.getCredentialsFunction;
+        if (options.sigv4utils) {
+            this.sigv4utils = options.sigv4utils;
+        }
+        else {
+            this.sigv4utils = new sig4utils_1.SigV4Utils();
+        }
         this.connectionParams = connectionParams;
         this.connectionCallback = connectionCallback;
-        this.url = url;
+        this.iotEndpoint = iotEndpoint;
         this.region = options.region;
         this.operations = {};
         this.nextOperationId = 0;
@@ -45,8 +59,8 @@ var SubscriptionClient = (function () {
         this.middlewares = [];
         this.client = null;
         this.maxConnectTimeGenerator = this.createMaxConnectTimeGenerator();
-        this.AppPrefix = options.AppPrefix || '';
         this.request = this.request.bind(this);
+        this.debug = options.debug;
         this.connect();
     }
     SubscriptionClient.prototype.close = function (isForced, closedByUser) {
@@ -215,7 +229,8 @@ var SubscriptionClient = (function () {
             .then(function (processedOptions) {
             _this.checkOperationOptions(processedOptions, handler);
             if (_this.operations[opId]) {
-                processedOptions.subscriptionName = options.query.definitions[0].selectionSet.selections[0].name.value;
+                processedOptions.subscriptionName =
+                    options.query.definitions[0].selectionSet.selections[0].name.value;
                 _this.operations[opId] = { options: processedOptions, handler: handler };
                 _this.sendMessage(opId, message_types_1.default.GQL_START, processedOptions);
             }
@@ -307,13 +322,12 @@ var SubscriptionClient = (function () {
         this.sendMessageRaw(this.buildMessage(id, type, payload));
     };
     SubscriptionClient.prototype.sendMessageRaw = function (message) {
-        console.log(message);
         switch (this.status) {
             case 'connected':
                 var serializedMessage = new Paho.MQTT.Message(JSON.stringify({ data: JSON.stringify(message) }));
-                serializedMessage.destinationName = this.AppPrefix + '/out';
-                console.log('Sending message');
-                console.log(serializedMessage.payloadString);
+                serializedMessage.destinationName = this.appPrefix + '/out';
+                this.debug && console.log('Sending message');
+                this.debug && console.log(message);
                 serializedMessage.retained = false;
                 this.client.send(serializedMessage);
                 break;
@@ -374,43 +388,35 @@ var SubscriptionClient = (function () {
     };
     SubscriptionClient.prototype.connect = function () {
         var _this = this;
-        console.log('connecting to socket');
+        this.debug && console.log('connecting to socket');
         this.status = 'connecting';
-        this.getCredentialsFn().then(function (_a) {
-            var credentials = _a.credentials, clientId = _a.clientId;
-            var requestUrl = _this.sigv4utils.getSignedUrl(_this.url, _this.region, credentials);
-            if (!clientId) {
-                _this.clientId = String(Math.random()).replace('.', '');
-            }
-            else {
-                _this.clientId = clientId;
-            }
+        this.getCredentialsFunction().then(function (credentials) {
+            var requestUrl = _this.sigv4utils.getSignedUrl(_this.iotEndpoint, _this.region, credentials);
+            _this.clientId = uuidv4();
             _this.client = new Paho.MQTT.Client(requestUrl, _this.clientId);
             var connectOptions = {
                 onSuccess: function () {
-                    console.log('successfully connected');
                     _this.status = 'connected';
                     _this.closedByUser = false;
                     _this.eventEmitter.emit(_this.reconnecting ? 'reconnecting' : 'connecting');
                     var payload = typeof _this.connectionParams === 'function' ? _this.connectionParams() : _this.connectionParams;
-                    var clientIdTopic = _this.AppPrefix + '/in/' + _this.clientId;
-                    console.log('subscribing to ' + clientIdTopic);
+                    var clientIdTopic = _this.appPrefix + '/in/' + _this.clientId;
+                    _this.debug && console.log('successfully connected');
                     _this.client.subscribe(clientIdTopic, {
                         onSuccess: function (obj) {
-                            console.log('subscribe success');
+                            _this.debug && console.log("subscribing to " + clientIdTopic);
                             _this.sendMessage(undefined, message_types_1.default.GQL_CONNECTION_INIT, payload);
+                            _this.flushUnsentMessagesQueue();
                         },
                         onFailure: function (obj) {
-                            console.log('subscribe failure');
-                            console.log(obj);
-                        }
+                            _this.debug && console.log('subscribe failure', obj);
+                        },
                     });
-                    _this.flushUnsentMessagesQueue();
                 },
-                useSSL: true,
+                useSSL: requestUrl.substring(0, 2) === 'wss',
                 timeout: _this.timeout,
                 mqttVersion: 4,
-                onFailure: _this.onClose.bind(_this)
+                onFailure: _this.onClose.bind(_this),
             };
             _this.client.onConnectionLost = _this.onClose.bind(_this);
             _this.client.onMessageArrived = _this.processReceivedData.bind(_this);
@@ -418,8 +424,7 @@ var SubscriptionClient = (function () {
         })
             .catch(function (err) {
             _this.status = 'offline';
-            console.log('connection error');
-            console.log(err);
+            _this.debug && console.log('connection error', err);
             _this.close(false, false);
         });
     };
@@ -429,7 +434,8 @@ var SubscriptionClient = (function () {
         try {
             parsedMessage = JSON.parse(receivedData.payloadString);
             opId = parsedMessage.id;
-            console.log('Received message', parsedMessage);
+            this.debug && console.log('Received message');
+            this.debug && console.log(parsedMessage);
         }
         catch (e) {
             throw new Error("Message must be JSON-parseable. Got: " + receivedData.payloadString);
@@ -485,9 +491,10 @@ var SubscriptionClient = (function () {
                 throw new Error('Invalid message type!');
         }
     };
-    SubscriptionClient.prototype.onClose = function (err) {
+    SubscriptionClient.prototype.onClose = function (reason) {
         this.status = 'closed';
-        console.log(err);
+        this.debug && console.log('Socket closed');
+        this.debug && console.log(reason);
         if (!this.closedByUser) {
             this.close(false, false);
         }

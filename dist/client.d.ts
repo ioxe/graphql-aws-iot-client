@@ -1,6 +1,7 @@
 import { ListenerFn } from 'eventemitter3';
 import { ExecutionResult } from 'graphql/execution/execute';
 import { DocumentNode } from 'graphql/language/ast';
+import { SigV4Utils } from './sig4utils';
 import 'paho-mqtt';
 export interface Observer<T> {
     next?: (value: T) => void;
@@ -33,33 +34,34 @@ export declare type ConnectionParams = {
 };
 export declare type ConnectionParamsOptions = ConnectionParams | Function;
 export interface ClientOptions {
-    AppPrefix: string;
+    appPrefix: string;
     region: string;
     connectionParams?: ConnectionParamsOptions;
+    getCredentialsFunction: GetCredentialsFunction;
+    sigv4utils?: SigV4Utils;
     timeout?: number;
     reconnect?: boolean;
     reconnectionAttempts?: number;
     connectionCallback?: (error: Error[], result?: any) => void;
     clientId?: string;
+    debug?: boolean;
 }
 export interface AWSCredentials {
     accessKeyId: string;
     secretAccessKey: string;
-    sessionToken: string;
+    sessionToken?: string;
 }
 export interface Middleware {
     applyMiddleware(options: OperationOptions, next: Function): void;
 }
-export interface GetCredentialsFn {
-    (...args: any[]): Promise<{
-        credentials: AWSCredentials;
-        clientId?: string;
-    }>;
+export interface GetCredentialsFunction {
+    (...args: any[]): Promise<AWSCredentials>;
 }
 export declare class SubscriptionClient {
     client: any;
     operations: Operations;
-    private url;
+    private appPrefix;
+    private iotEndpoint;
     private region;
     private nextOperationId;
     private connectionParams;
@@ -82,10 +84,10 @@ export declare class SubscriptionClient {
     private clientId;
     private uuid;
     private status;
-    private AppPrefix;
-    private getCredentialsFn;
+    private getCredentialsFunction;
     private sigv4utils;
-    constructor(url: string, options: ClientOptions, getCredentialsFn: GetCredentialsFn);
+    private debug;
+    constructor(iotEndpoint: string, options: ClientOptions);
     close(isForced?: boolean, closedByUser?: boolean): void;
     request(request: OperationOptions): Observable<ExecutionResult>;
     query(options: OperationOptions): Promise<ExecutionResult>;
@@ -118,5 +120,5 @@ export declare class SubscriptionClient {
     private checkMaxConnectTimeout();
     private connect();
     private processReceivedData(receivedData);
-    private onClose(err);
+    private onClose(reason);
 }

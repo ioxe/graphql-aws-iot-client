@@ -1,16 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var util = require('aws-sdk/lib/util');
+util.crypto.lib = require('crypto');
+util.Buffer = require('buffer').Buffer;
+util.domain = require('domain');
+util.stream = require('stream');
+util.url = require('url');
+util.querystring = require('querystring');
+util.environment = 'nodejs';
 var SigV4Utils = (function () {
     function SigV4Utils() {
     }
-    SigV4Utils.prototype.getSignatureKey = function (key, date, region, service) {
-        var kDate = util.crypto.hmac('AWS4' + key, date, 'buffer');
-        var kRegion = util.crypto.hmac(kDate, region, 'buffer');
-        var kService = util.crypto.hmac(kRegion, service, 'buffer');
-        var kCredentials = util.crypto.hmac(kService, 'aws4_request', 'buffer');
-        return kCredentials;
-    };
     SigV4Utils.prototype.getSignedUrl = function (host, region, credentials) {
         var datetime = util.date.iso8601(new Date()).replace(/[:\-]|\.\d{3}/g, '');
         var date = datetime.substr(0, 8);
@@ -36,6 +36,13 @@ var SigV4Utils = (function () {
         }
         var requestUrl = protocol + '://' + host + uri + '?' + canonicalQuerystring;
         return requestUrl;
+    };
+    SigV4Utils.prototype.getSignatureKey = function (key, date, region, service) {
+        var kDate = util.crypto.hmac('AWS4' + key, date, 'buffer');
+        var kRegion = util.crypto.hmac(kDate, region, 'buffer');
+        var kService = util.crypto.hmac(kRegion, service, 'buffer');
+        var kCredentials = util.crypto.hmac(kService, 'aws4_request', 'buffer');
+        return kCredentials;
     };
     return SigV4Utils;
 }());
