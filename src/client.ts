@@ -15,6 +15,7 @@ import { SigV4Utils } from './sig4utils'; // For WS URL Signing
 
 import 'paho-mqtt';
 declare var Paho: any;
+const uuidv4 = require('uuid/v4');
 
 export interface Observer<T> {
     next?: (value: T) => void;
@@ -58,9 +59,11 @@ export type ConnectionParams = {
 export type ConnectionParamsOptions = ConnectionParams | Function;
 
 export interface ClientOptions {
-    AppPrefix: string // used as namespace for creation of topics  
+    appPrefix: string; // used as namespace for creation of topics  
     region: string;
-    connectionParams?: ConnectionParamsOptions;
+    connectionParams?: ConnectionParamsOptions;    
+    getCredentialsFunction: GetCredentialsFunction;
+    sigv4utils?: SigV4Utils;
     timeout?: number;
     reconnect?: boolean;
     reconnectionAttempts?: number;
@@ -71,21 +74,22 @@ export interface ClientOptions {
 export interface AWSCredentials {
     accessKeyId: string;
     secretAccessKey: string;
-    sessionToken: string;
+    sessionToken?: string;
 }
 
 export interface Middleware {
     applyMiddleware(options: OperationOptions, next: Function): void;
 }
 
-export interface GetCredentialsFn {
-    (...args: any[]): Promise<{ credentials: AWSCredentials, clientId?: string }>; // method to obtain credentials for connecting and subscribing to AWS IOT Topics    
+export interface GetCredentialsFunction {
+    (...args: any[]): Promise<AWSCredentials>; // method to obtain credentials for connecting and subscribing to AWS IOT Topics    
 }
 
 export class SubscriptionClient {
+    private appPrefix: string // used as namespace for creation of topics    
     public client: any;
     public operations: Operations;
-    private url: string; // iot endpoint for region where app is deployed
+    private iotEndpoint: string; // iot endpoint for region where app is deployed
     private region: string; // region of iot endpoint
     private nextOperationId: number;
     private connectionParams: ConnectionParamsOptions;
@@ -108,11 +112,10 @@ export class SubscriptionClient {
     private clientId: string;
     private uuid: string;
     private status = 'connecting';
-    private AppPrefix: string // used as namespace for creation of topics
-    private getCredentialsFn: GetCredentialsFn // method to obtain credentials for connecting and subscribing to AWS IOT Topics    
+    private getCredentialsFunction: GetCredentialsFunction // method to obtain credentials for connecting and subscribing to AWS IOT Topics    
     private sigv4utils: SigV4Utils; // class used to sign credentials and create request url to connect to the web socket
 
-    constructor(url: string, options: ClientOptions, getCredentialsFn: GetCredentialsFn) {
+    constructor(iotEndpoint: string, options: ClientOptions) {
         const {
             connectionCallback = null,
             connectionParams = {},
@@ -120,14 +123,32 @@ export class SubscriptionClient {
             reconnect = false,
             reconnectionAttempts = Infinity,
     } = (options || {});
-        this.getCredentialsFn = getCredentialsFn;
-        if (!this.getCredentialsFn) {
-            throw new Error('Get Credentials Function required to connect to the socket');
+
+        if (!iotEndpoint) {
+            throw new Error('Iot Endpoint Required')
         }
-        this.sigv4utils = new SigV4Utils();
+
+        if (!options.appPrefix) {
+            throw new Error('App Prefix Required')   
+        }
+        
+        if (!options.getCredentialsFunction) {
+            throw new Error('Get Credentials Function required to generate aws iot signed url.');
+        }
+
+        this.iotEndpoint = iotEndpoint;
+        this.appPrefix = options.appPrefix;
+        this.getCredentialsFunction = options.getCredentialsFunction;
+        
+        if (options.sigv4utils) {
+            this.sigv4utils = options.sigv4utils;
+        } else {
+            this.sigv4utils = new SigV4Utils();
+        }
+       
         this.connectionParams = connectionParams;
         this.connectionCallback = connectionCallback;
-        this.url = url;
+        this.iotEndpoint = iotEndpoint;
         this.region = options.region;
         this.operations = {};
         this.nextOperationId = 0;
@@ -142,7 +163,6 @@ export class SubscriptionClient {
         this.middlewares = [];
         this.client = null;
         this.maxConnectTimeGenerator = this.createMaxConnectTimeGenerator();
-        this.AppPrefix = options.AppPrefix || '';
 
 
         this.request = this.request.bind(this);
@@ -184,7 +204,6 @@ export class SubscriptionClient {
                 onComplete?: () => void,
             ) {
                 const observer = getObserver(observerOrNext, onError, onComplete);
-
                 opId = executeOperation({
                     query: request.query,
                     variables: request.variables,
@@ -217,7 +236,7 @@ export class SubscriptionClient {
  * request should be used.
  */
     public query(options: OperationOptions): Promise<ExecutionResult> {
-        return new Promise((resolve, reject) => { 
+        return new Promise((resolve, reject) => {
             const handler = (error: Error[], result?: any) => {
                 if (result) {
                     resolve(result);
@@ -339,7 +358,6 @@ export class SubscriptionClient {
     private executeOperation(options: OperationOptions, handler: (error: Error[], result?: any) => void): string {
         const opId = this.generateOperationId();
         this.operations[opId] = { options: options, handler };
-
         this.applyMiddlewares(options)
             .then(processedOptions => {
                 this.checkOperationOptions(processedOptions, handler);
@@ -470,11 +488,10 @@ export class SubscriptionClient {
 
     // send message, or queue it if connection is not open
     private sendMessageRaw(message) {
-        console.log(message);
         switch (this.status) {
             case 'connected':
                 const serializedMessage = new Paho.MQTT.Message(JSON.stringify({ data: JSON.stringify(message) })); // sending to graphql api handler as a string
-                serializedMessage.destinationName = this.AppPrefix + '/out'; // topic pattern for each device connected
+                serializedMessage.destinationName = this.appPrefix + '/out'; // topic pattern for each device connected
                 console.log('Sending message');
                 console.log(serializedMessage.payloadString);
                 serializedMessage.retained = false;
@@ -549,33 +566,27 @@ export class SubscriptionClient {
     private connect() {
         console.log('connecting to socket');
         this.status = 'connecting';
-        this.getCredentialsFn().then(({ credentials, clientId }) => {
+        this.getCredentialsFunction().then(credentials => {
             const requestUrl = this.sigv4utils.getSignedUrl(
-                this.url, this.region, credentials);
-            if (!clientId) {
-                this.clientId = String(Math.random()).replace('.', '');
-            } else {
-                this.clientId = clientId;
-            }
+            this.iotEndpoint, this.region, credentials);      
+            this.clientId = uuidv4();          
             this.client = new Paho.MQTT.Client(requestUrl, this.clientId);
             const connectOptions = {
                 onSuccess: () => {
                     console.log('successfully connected');
                     this.status = 'connected';
                     this.closedByUser = false;
-                    this.eventEmitter.emit(this.reconnecting ? 'reconnecting' : 'connecting'); // why here and not earlier?
+                                        this.eventEmitter.emit(this.reconnecting ? 'reconnecting' : 'connecting'); // why here and not earlier?
                     const payload: ConnectionParams =
                         typeof this.connectionParams === 'function' ? this.connectionParams() : this.connectionParams;
-                    // Send CONNECTION_INIT message, no need to wait for connection to success (reduce roundtrips)
-
-
-                    const clientIdTopic = this.AppPrefix + '/in/' + this.clientId;
-
-                    console.log('subscribing to ' + clientIdTopic);
+                    // Send CONNECTION_INIT message, no need to wait for connection to success (reduce roundtrips)                    console.log('subscribing to ' + clientIdTopic);
+                    
+                    const clientIdTopic = this.appPrefix + '/in/' + this.clientId;
+                    console.log('subscribing to ' + clientIdTopic);                    
                     this.client.subscribe(clientIdTopic, {
                         onSuccess: (obj) => {
                             console.log('subscribe success');
-                            this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_INIT, payload);
+                            this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_INIT, payload);                            
                         },
                         onFailure: (obj) => {
                             console.log('subscribe failure');
@@ -584,7 +595,7 @@ export class SubscriptionClient {
                     });
                     this.flushUnsentMessagesQueue();
                 },
-                useSSL: true,
+                useSSL: requestUrl.substring(0,2) === 'wss',
                 timeout: this.timeout,
                 mqttVersion: 4,
                 onFailure: this.onClose.bind(this)
