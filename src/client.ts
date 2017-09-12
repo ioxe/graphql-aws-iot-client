@@ -586,14 +586,14 @@ export class SubscriptionClient {
                     this.client.subscribe(clientIdTopic, {
                         onSuccess: (obj) => {
                             console.log('subscribe success');
-                            this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_INIT, payload);                            
+                            this.sendMessage(undefined, MessageTypes.GQL_CONNECTION_INIT, payload);         
+                            this.flushUnsentMessagesQueue();                            
                         },
                         onFailure: (obj) => {
                             console.log('subscribe failure');
                             console.log(obj);
                         }
                     });
-                    this.flushUnsentMessagesQueue();
                 },
                 useSSL: requestUrl.substring(0,2) === 'wss',
                 timeout: this.timeout,
