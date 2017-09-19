@@ -1,16 +1,13 @@
 # graphql-aws-iot-client
 
-WS client for serverless subscriptions queries and mutations that is compatible with Apollo Client and [graphql-aws-iot-server](https://github.com/ioxe/graphql-aws-iot-server).
+WebSocket client for serverless subscriptions, queries and mutations. Compatible with Apollo Client and [graphql-aws-iot-server](https://github.com/ioxe/graphql-aws-iot-server). Adapted from the [Apollo subscriptions-transport-ws](https://github.com/apollographql/subscriptions-transport-ws)
 
-Adapted from the [Apollo Subscriptions Ws Transport](https://github.com/apollographql/subscriptions-transport-ws)
 
-apollo module - setting up client in Angular 2 and up example:
+### Apollo module - setting up client in Angular 2 and up example:
 
-Please note that this client **will not work with the angular cli**. You can either eject from the cli or use your own custom configuration. The angular cli strips out crypto in its build flow and crypto is required to sign the mqtt ws url for aws iot.
+Please note that this client **will not work with the angular cli**. You can either eject from the cli or use your own custom configuration. The angular cli strips out crypto in its build flow and crypto is required to sign the mqtt websocket url for AWS IoT.
 
-This client supports / has been tested with the full ws transport and not the hybrid transport which has been deprecated.
-
-If you are using angular 2 and up you can import the client directly from 'graphql-aws-iot-client/src' to use the typescript code directly rather than the compiled code.
+This client supports / has been tested with the full ws transport and not the (deprecated) hybrid transport. If you are using angular 2 and up, you can import the client directly from 'graphql-aws-iot-client/src' to use the typescript code directly rather than the compiled code.
 
 ``` ts
 import { Inject } from '@angular/core';
