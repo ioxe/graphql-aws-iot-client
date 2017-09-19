@@ -5,7 +5,7 @@ WebSocket client for serverless subscriptions, queries and mutations. Compatible
 
 ### Apollo module - setting up client in Angular 2 and up example:
 
-Please note that this client **will not work with the angular cli**. You can either eject from the cli or use your own custom configuration. The angular cli strips out crypto in its build flow and crypto is required to sign the mqtt websocket url for AWS IoT.
+Please note to make the client work with the angular cli you need to set crypto to true at node-modules/@angular/cli/models/webpack-configs/common.js (~Line 161). This is required to sign the websocket url. The angular team currently refuses to integrate this modification into their published package. You could make this change as a post install script. You could also have your own custom build config that doesn't use angular cli.
 
 This client supports / has been tested with the full ws transport and not the (deprecated) hybrid transport. If you are using angular 2 and up, you can import the client directly from 'graphql-aws-iot-client/src' to use the typescript code directly rather than the compiled code.
 
