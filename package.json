@@ -5,6 +5,7 @@
   "main": "dist/index",
   "scripts": {
     "test": "jest",
+    "fix": "tslint src/**/* --fix",
     "test:coverage": "jest --coverage",
     "test:dev": "jest --watch",
     "lint": "tslint src/**/*",    

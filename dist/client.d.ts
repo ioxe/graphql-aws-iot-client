@@ -121,4 +121,5 @@ export declare class SubscriptionClient {
     private connect();
     private processReceivedData(receivedData);
     private onClose(reason);
+    private hasSubscriptionOperation;
 }

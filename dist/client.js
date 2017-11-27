@@ -23,7 +23,14 @@ var uuidv4 = require('uuid/v4');
 var SubscriptionClient = (function () {
     function SubscriptionClient(iotEndpoint, options) {
         this.status = 'connecting';
-        var _a = (options || {}), _b = _a.connectionCallback, connectionCallback = _b === void 0 ? null : _b, _c = _a.connectionParams, connectionParams = _c === void 0 ? {} : _c, _d = _a.timeout, timeout = _d === void 0 ? defaults_1.WS_TIMEOUT : _d, _e = _a.reconnect, reconnect = _e === void 0 ? false : _e, _f = _a.reconnectionAttempts, reconnectionAttempts = _f === void 0 ? Infinity : _f;
+        this.hasSubscriptionOperation = function (_a) {
+            var definitions = _a.query.definitions;
+            return definitions.some(function (_a) {
+                var kind = _a.kind, operation = _a.operation;
+                return kind === 'OperationDefinition' && operation === 'subscription';
+            });
+        };
+        var _a = options || {}, _b = _a.connectionCallback, connectionCallback = _b === void 0 ? null : _b, _c = _a.connectionParams, connectionParams = _c === void 0 ? {} : _c, _d = _a.timeout, timeout = _d === void 0 ? defaults_1.WS_TIMEOUT : _d, _e = _a.reconnect, reconnect = _e === void 0 ? false : _e, _f = _a.reconnectionAttempts, reconnectionAttempts = _f === void 0 ? Infinity : _f;
         if (!iotEndpoint) {
             throw new Error('Iot Endpoint Required');
         }
@@ -97,9 +104,12 @@ var SubscriptionClient = (function () {
                     query: request.query,
                     variables: request.variables,
                     operationName: request.operationName,
+                    token: request.token,
                 }, function (error, result) {
                     if (error === null && result === null) {
-                        observer.complete();
+                        if (observer.complete && observer.complete instanceof Function) {
+                            observer.complete();
+                        }
                     }
                     else if (error) {
                         observer.error(error[0]);
@@ -136,8 +146,8 @@ var SubscriptionClient = (function () {
     };
     SubscriptionClient.prototype.subscribe = function (options, handler) {
         var legacyHandler = function (error, result) {
-            var operationPayloadData = result && result.data || null;
-            var operationPayloadErrors = result && result.errors || null;
+            var operationPayloadData = (result && result.data) || null;
+            var operationPayloadErrors = (result && result.errors) || null;
             if (error) {
                 operationPayloadErrors = error;
                 operationPayloadData = null;
@@ -173,8 +183,15 @@ var SubscriptionClient = (function () {
         return this.on('reconnecting', callback, context);
     };
     SubscriptionClient.prototype.unsubscribe = function (opId) {
-        if (this.operations[opId]) {
-            this.sendMessage(opId, message_types_1.default.GQL_STOP, { subscriptionName: this.operations[opId].options.subscriptionName });
+        if (this.operations[opId] &&
+            this.operations[opId].options &&
+            this.operations[opId].options.query &&
+            this.hasSubscriptionOperation(this.operations[opId].options)) {
+            var subscriptionName = this.operations[opId].options.query.definitions[0].selectionSet.selections[0]
+                .name.value;
+            this.sendMessage(opId, message_types_1.default.GQL_STOP, {
+                subscriptionName: subscriptionName,
+            });
             delete this.operations[opId];
         }
     };
@@ -229,8 +246,6 @@ var SubscriptionClient = (function () {
             .then(function (processedOptions) {
             _this.checkOperationOptions(processedOptions, handler);
             if (_this.operations[opId]) {
-                processedOptions.subscriptionName =
-                    options.query.definitions[0].selectionSet.selections[0].name.value;
                 _this.operations[opId] = { options: processedOptions, handler: handler };
                 _this.sendMessage(opId, message_types_1.default.GQL_START, processedOptions);
             }
@@ -294,8 +309,8 @@ var SubscriptionClient = (function () {
         }
     };
     SubscriptionClient.prototype.buildMessage = function (id, type, payload) {
-        var payloadToReturn = payload && payload.query ? __assign({}, payload, { query: typeof payload.query === 'string' ? payload.query : printer_1.print(payload.query) }) :
-            payload;
+        var payloadToReturn = payload && payload.query
+            ? __assign({}, payload, { query: typeof payload.query === 'string' ? payload.query : printer_1.print(payload.query) }) : payload;
         return {
             id: id,
             type: type,
@@ -312,11 +327,13 @@ var SubscriptionClient = (function () {
         if (errors && errors.message) {
             return [errors];
         }
-        return [{
+        return [
+            {
                 name: 'FormatedError',
                 message: 'Unknown error',
                 originalError: errors,
-            }];
+            },
+        ];
     };
     SubscriptionClient.prototype.sendMessage = function (id, type, payload) {
         this.sendMessageRaw(this.buildMessage(id, type, payload));
@@ -390,7 +407,8 @@ var SubscriptionClient = (function () {
         var _this = this;
         this.debug && console.log('connecting to socket');
         this.status = 'connecting';
-        this.getCredentialsFunction().then(function (credentials) {
+        this.getCredentialsFunction()
+            .then(function (credentials) {
             var requestUrl = _this.sigv4utils.getSignedUrl(_this.iotEndpoint, _this.region, credentials);
             _this.clientId = uuidv4();
             _this.client = new Paho.MQTT.Client(requestUrl, _this.clientId);
@@ -440,10 +458,8 @@ var SubscriptionClient = (function () {
         catch (e) {
             throw new Error("Message must be JSON-parseable. Got: " + receivedData.payloadString);
         }
-        if ([message_types_1.default.GQL_DATA,
-            message_types_1.default.GQL_COMPLETE,
-            message_types_1.default.GQL_ERROR,
-        ].indexOf(parsedMessage.type) !== -1 && !this.operations[opId]) {
+        if ([message_types_1.default.GQL_DATA, message_types_1.default.GQL_COMPLETE, message_types_1.default.GQL_ERROR].indexOf(parsedMessage.type) !== -1 &&
+            !this.operations[opId]) {
             this.unsubscribe(opId);
             return;
         }
@@ -471,8 +487,9 @@ var SubscriptionClient = (function () {
                 delete this.operations[opId];
                 break;
             case message_types_1.default.GQL_DATA:
-                var parsedPayload = !parsedMessage.payload.errors ?
-                    parsedMessage.payload : __assign({}, parsedMessage.payload, { errors: this.formatErrors(parsedMessage.payload.errors) });
+                var parsedPayload = !parsedMessage.payload.errors
+                    ? parsedMessage.payload
+                    : __assign({}, parsedMessage.payload, { errors: this.formatErrors(parsedMessage.payload.errors) });
                 this.operations[opId].handler(null, parsedPayload);
                 break;
             case message_types_1.default.GQL_CONNECTION_KEEP_ALIVE:
